@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap');
+@import 'leaflet/dist/leaflet.css';
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: #2E7D5B;
+  --color-primary-dark: #185C43;
+  --color-primary-light: #E8F5E9;
+  --color-primary-bg: #F4FBF6;
+  --color-bg: #F7F9F8;
+  --color-surface: #FFFFFF;
+  --color-text: #17221D;
+  --color-text-muted: #66736D;
+  --color-border: #DCE6E0;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+  --color-success: #16A34A;
+  --font-bengali: 'Noto Sans Bengali', 'Noto Sans', system-ui, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Noto Sans Bengali', 'Noto Sans', system-ui, sans-serif;
+  background-color: #F7F9F8;
+  color: #17221D;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  font-family: 'Noto Sans Bengali', 'Noto Sans', system-ui, sans-serif;
+  z-index: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #DCE6E0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b0c4b8;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid #2E7D5B;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+a, button {
+  transition: all 0.15s ease;
+}
+
+/* Shared input base style */
+.input-base {
+  width: 100%;
+  border: 1px solid #DCE6E0;
+  border-radius: 9px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #17221D;
+  background-color: #fff;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+.input-base:hover { border-color: #b0c4b8; }
+.input-base:focus { border-color: #2E7D5B; outline: none; }

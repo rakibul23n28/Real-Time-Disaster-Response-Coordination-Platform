@@ -1,0 +1,10 @@
+{
+  "description": "Streamlines project management by enabling users to organize tasks, track progress, and collaborate efficiently in one intuitive platform.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
