@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../../components/common/Logo";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
@@ -7,8 +7,9 @@ import { useAuth } from "../../hooks/useAuth";
 import DisasterMap from "../../components/maps/DisasterMap";
 
 export default function LoginPage() {
-  const { login, error: authError } = useAuth();
+  const { login, error: authError, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -20,6 +21,14 @@ export default function LoginPage() {
     volunteer: "/volunteer",
     admin: "/admin",
   };
+
+  const from = (location.state as { from?: string } | null)?.from ?? null;
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(from || redirectMap[user.role] || "/citizen", { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,14 +42,9 @@ export default function LoginPage() {
     try {
       setLoading(true);
       await login(email, password);
-      // Get the user from auth context to determine redirect
       const userRole = localStorage.getItem("duryog-user");
-      if (userRole) {
-        const user = JSON.parse(userRole);
-        navigate(redirectMap[user.role] || "/citizen");
-      } else {
-        navigate("/citizen");
-      }
+      const target = from || (userRole ? JSON.parse(userRole)?.role : null);
+      navigate(target ? redirectMap[target] || "/citizen" : "/citizen", { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "লগইন ব্যর্থ হয়েছে";
       setError(message);

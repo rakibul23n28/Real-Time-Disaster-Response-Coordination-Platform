@@ -65,11 +65,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Demo mode badge */}
-        <div className="hidden sm:flex items-center gap-1 bg-[#E8F5E9] border border-[#b8ddc5] rounded-full px-2.5 py-0.5 cursor-default" title="এই সংস্করণে প্রদর্শনের জন্য ডেমো ডেটা ব্যবহার করা হচ্ছে।">
-          <span className="size-1.5 rounded-full bg-[#2E7D5B]" />
-          <span className="text-[10px] font-semibold text-[#2E7D5B]">ডেমো</span>
-        </div>
+      
 
         {/* Emergency status */}
         <div className="hidden sm:flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-full px-3 py-1">

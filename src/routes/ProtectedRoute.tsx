@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { type UserRole } from "../data/mockUsers";
 
@@ -7,9 +7,17 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ role }: ProtectedRouteProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (loading) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
   if (user?.role !== role) {
     const redirectMap: Record<UserRole, string> = {
       citizen: "/citizen",
