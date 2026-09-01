@@ -7,6 +7,8 @@ import path from "path";
 export async function createReport(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const files = (req.files as Express.Multer.File[]) ?? [];
+    //cheack image
+    console.log("Uploaded files:", files.map(f => f.originalname));
     const imageUrls = files.map((f) => `/uploads/${f.filename}`);
     const report = await reportService.createReport(req.user!.userId, req.body, imageUrls);
     created(res, report, "Report submitted successfully");
@@ -27,7 +29,7 @@ export async function getReport(req: AuthRequest, res: Response, next: NextFunct
   try {
     const report = await reportService.getReportById(Number(req.params.id));
     if (!report) { fail(res, "Report not found", 404); return; }
-    if (req.user!.role === "citizen" && (report as { citizen_id: number }).citizen_id !== req.user!.userId) {
+    if (req.user!.role === "citizen" && (report as unknown as { citizen_id: number }).citizen_id !== req.user!.userId) {
       fail(res, "Forbidden", 403); return;
     }
     ok(res, report);

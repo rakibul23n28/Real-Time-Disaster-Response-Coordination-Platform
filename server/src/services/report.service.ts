@@ -16,10 +16,10 @@ export async function createReport(citizenId: number, input: CreateReportInput, 
 
   const [result] = await pool.execute<ResultSetHeader>(
     `INSERT INTO reports
-       (report_code, citizen_id, disaster_type, title, description, affected_people, latitude, longitude, location_name)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (report_code, citizen_id, disaster_type, title, description, affected_people,district, latitude, longitude, location_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [code, citizenId, input.disaster_type, input.title, input.description,
-     input.affected_people, input.latitude, input.longitude, input.location_name]
+     input.affected_people, input.district, input.latitude, input.longitude, input.location_name]
   );
   const reportId = result.insertId;
 

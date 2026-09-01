@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { apiClient } from "../lib/api";
+import { apiClient, type UpdateUserInput } from "../lib/api";
 
 interface User {
   id: number;
@@ -8,6 +8,7 @@ interface User {
   phone?: string;
   role: string;
   profile_image?: string;
+  created_at?: string;
 }
 
 interface AuthContextType {
@@ -23,6 +24,7 @@ interface AuthContextType {
     role: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (input: UpdateUserInput) => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -127,6 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUser = async (input: UpdateUserInput) => {
+    const updatedUser = await apiClient.updateMe(input);
+    setUser(updatedUser);
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -136,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        updateUser,
         isAuthenticated: !!user,
       }}
     >

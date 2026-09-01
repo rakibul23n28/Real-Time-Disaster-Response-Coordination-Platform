@@ -6,9 +6,10 @@ export const createReportSchema = z.object({
   disaster_type:   z.enum(disasterTypes),
   title:           z.string().min(5).max(250),
   description:     z.string().min(10),
-  affected_people: z.number().int().min(0).default(0),
-  latitude:        z.number().min(-90).max(90),
-  longitude:       z.number().min(-180).max(180),
+  affected_people: z.coerce.number().int().min(0).default(0),
+  district:        z.string().max(100),
+  latitude:        z.coerce.number().min(-90).max(90),
+  longitude:       z.coerce.number().min(-180).max(180),
   location_name:   z.string().min(2).max(200),
 });
 

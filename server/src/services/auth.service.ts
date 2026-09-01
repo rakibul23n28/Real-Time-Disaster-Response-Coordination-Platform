@@ -2,7 +2,7 @@ import { pool } from "../config/database.js";
 import { hashPassword, comparePassword } from "../utils/password.js";
 import { signToken } from "../utils/jwt.js";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
-import type { RegisterInput, LoginInput } from "../validations/auth.validation.js";
+import type { RegisterInput, LoginInput, UpdateMeInput } from "../validations/auth.validation.js";
 
 interface UserRow extends RowDataPacket {
   id: number;
@@ -57,4 +57,17 @@ export async function getMe(userId: number) {
   );
   if (!rows[0]) throw Object.assign(new Error("User not found"), { status: 404 });
   return rows[0];
+}
+
+export async function updateMe(userId: number, input: UpdateMeInput) {
+  const [existing] = await pool.execute<UserRow[]>(
+    `SELECT id FROM users WHERE email = ? AND id != ?`, [input.email, userId]
+  );
+  if (existing.length > 0) throw Object.assign(new Error("Email already registered"), { status: 409 });
+
+  await pool.execute(
+    `UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?`,
+    [input.name, input.email, input.phone ?? null, userId]
+  );
+  return getMe(userId);
 }

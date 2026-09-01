@@ -1,26 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PageHeader from "../../components/common/PageHeader";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { useAuth } from "../../hooks/useAuth";
-import { useAppState } from "../../hooks/useAppState";
+import { useCitizenReports } from "../../hooks/useCitizenReports";
 import { useToast } from "../../components/common/Toast";
 
 export default function CitizenProfile() {
-  const { user } = useAuth();
-  const { reports } = useAppState();
+  const { user, updateUser } = useAuth();
+  const { reports } = useCitizenReports({ autoFetch: true });
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [mobile, setMobile] = useState(user?.mobile ?? "");
-  const [district, setDistrict] = useState(user?.district ?? "");
+  const [mobile, setMobile] = useState(user?.phone ?? "");
+  useEffect(() => {
+    if (!user) return;
+    setName(user.name);
+    setEmail(user.email);
+    setMobile(user.phone ?? "");
+  }, [user]);
 
-  const myReports = reports.filter((r) => r.reporterId === user?.id);
-
-  const handleSave = () => {
-    showToast("প্রোফাইল তথ্য সংরক্ষিত হয়েছে।");
-    setEditing(false);
+  const handleSave = async () => {
+    try {
+      await updateUser({ name, email, phone: mobile || undefined });
+      showToast("প্রোফাইল তথ্য সংরক্ষিত হয়েছে।", "success");
+      setEditing(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "প্রোফাইল তথ্য সংরক্ষণ করা যায়নি।", "error");
+    }
   };
 
   return (
@@ -36,10 +44,12 @@ export default function CitizenProfile() {
           <div className="flex-1">
             <h2 className="text-lg font-bold text-[#17221D]">{name}</h2>
             <p className="text-sm text-[#2E7D5B] font-medium">নাগরিক / তথ্যদাতা</p>
-            <p className="text-xs text-[#66736D] mt-0.5">নিবন্ধন: ১ সেপ্টেম্বর, ২০২৬</p>
+            <p className="text-xs text-[#66736D] mt-0.5">
+              নিবন্ধন: {user?.created_at ? new Date(user.created_at).toLocaleDateString("bn-BD") : "-"}
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-[#2E7D5B]">{myReports.length}</p>
+            <p className="text-2xl font-bold text-[#2E7D5B]">{reports.length}</p>
             <p className="text-xs text-[#66736D]">মোট রিপোর্ট</p>
           </div>
         </div>
@@ -47,9 +57,9 @@ export default function CitizenProfile() {
         {/* Stats row */}
         <div className="grid grid-cols-3 border-b border-[#DCE6E0]">
           {[
-            { label: "যাচাইকৃত", value: myReports.filter((r) => r.status === "verified").length, color: "text-green-600" },
-            { label: "অপেক্ষমাণ", value: myReports.filter((r) => r.status === "pending").length, color: "text-amber-600" },
-            { label: "সম্পন্ন", value: myReports.filter((r) => r.status === "completed").length, color: "text-[#2E7D5B]" },
+            { label: "যাচাইকৃত", value: reports.filter((r) => r.status === "verified").length, color: "text-green-600" },
+            { label: "অপেক্ষমাণ", value: reports.filter((r) => r.status === "pending").length, color: "text-amber-600" },
+            { label: "সম্পন্ন", value: reports.filter((r) => r.status === "completed").length, color: "text-[#2E7D5B]" },
           ].map((s) => (
             <div key={s.label} className="text-center py-4 border-r last:border-r-0 border-[#DCE6E0]">
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -64,7 +74,7 @@ export default function CitizenProfile() {
             <h3 className="text-sm font-semibold text-[#17221D] mb-3">ব্যক্তিগত তথ্য</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               <Input label="পূর্ণ নাম" value={name} onChange={(e) => setName(e.target.value)} disabled={!editing} />
-              <Input label="জেলা" value={district} onChange={(e) => setDistrict(e.target.value)} disabled={!editing} />
+              <Input label="ভূমিকা" value="নাগরিক" disabled />
             </div>
           </div>
 

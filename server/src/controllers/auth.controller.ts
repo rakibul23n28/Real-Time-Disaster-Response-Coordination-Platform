@@ -24,6 +24,13 @@ export async function me(req: AuthRequest, res: Response, next: NextFunction) {
   } catch (err) { next(err); }
 }
 
+export async function updateMe(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const user = await authService.updateMe(req.user!.userId, req.body);
+    ok(res, user, "Profile updated successfully");
+  } catch (err) { next(err); }
+}
+
 export function logout(_req: Request, res: Response) {
   ok(res, null, "Logged out successfully");
 }

@@ -5,23 +5,22 @@ import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import LocationPicker from "../../components/maps/LocationPicker";
-import { useAppState } from "../../hooks/useAppState";
 import { useAuth } from "../../hooks/useAuth";
+import { useCitizenReports } from "../../hooks/useCitizenReports";
 import { useToast } from "../../components/common/Toast";
-import { type DisasterType, type Report } from "../../data/mockReports";
 
-const disasterTypes: DisasterType[] = ["বন্যা", "ঘূর্ণিঝড়", "নদীভাঙন", "জলাবদ্ধতা", "ভূমিধস", "অন্যান্য"];
+const disasterTypes = ["বন্যা", "ঘূর্ণিঝড়", "নদীভাঙন", "জলাবদ্ধতা", "ভূমিধস", "অন্যান্য"];
 const districts = ["সুনামগঞ্জ", "সিলেট", "কক্সবাজার", "খুলনা", "বরিশাল", "চট্টগ্রাম", "রাঙামাটি", "ঢাকা", "ময়মনসিংহ", "রংপুর", "কুমিল্লা", "যশোর"];
 
 const DEMO_LOCATION = { lat: 24.8917, lng: 91.3967 };
 
 export default function ReportForm() {
   const navigate = useNavigate();
-  const { addReport, reports } = useAppState();
   const { user } = useAuth();
+  const { createReport, uploadPhoto } = useCitizenReports();
   const { showToast } = useToast();
 
-  const [disasterType, setDisasterType] = useState<DisasterType | "">("");
+  const [disasterType, setDisasterType] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [affectedPeople, setAffectedPeople] = useState("");
@@ -35,7 +34,7 @@ export default function ReportForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<Report | null>(null);
+  const [submitted, setSubmitted] = useState<{ id: number } | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -93,30 +92,42 @@ export default function ReportForm() {
     setShowConfirm(true);
   };
 
+  const clearErrors = (field: string) => {
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleConfirm = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-    const existingNums = reports.map((r) => parseInt(r.id.replace("RPT-", "")) || 0).filter(Boolean);
-    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
-    const newReport: Report = {
-      id: `RPT-${String(nextNum).padStart(3, "0")}`,
-      reporterId: user?.id ?? "USR-001",
-      disasterType: disasterType as DisasterType,
-      title,
-      description,
-      location: { name: locationName || "সুনামগঞ্জ, বাংলাদেশ", district: district || "সুনামগঞ্জ", lat: coords.lat, lng: coords.lng },
-      affectedPeople: parseInt(affectedPeople) || 0,
-      photos: photos.map((p) => p.preview),
-      status: "pending",
-      severity: "medium",
-      reporterName: user?.name ?? "নাম অজানা",
-      createdAt: new Date().toISOString(),
-      displayTime: "এইমাত্র",
-    };
-    addReport(newReport);
-    setSubmitting(false);
-    setShowConfirm(false);
-    setSubmitted(newReport);
+    try {
+      // Create report on server with all images in one request
+      const newReport = await createReport({
+        title,
+        description,
+        disasterType,
+        location: {
+          name: locationName || "সুনামগঞ্জ, বাংলাদেশ",
+          district: district || "সুনামগঞ্জ",
+          lat: coords.lat,
+          lng: coords.lng,
+        },
+        affectedPeople: parseInt(affectedPeople) || 0,
+        files: photos.map((p) => p.file),
+      });
+
+      setShowConfirm(false);
+      setSubmitted(newReport);
+      showToast("রিপোর্ট সফলভাবে জমা হয়েছে", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "রিপোর্ট জমা দিতে ব্যর্থ হয়েছে";
+      showToast(message, "error");
+      setErrors({ submit: message });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -168,7 +179,7 @@ export default function ReportForm() {
               </label>
               <select
                 value={disasterType}
-                onChange={(e) => { setDisasterType(e.target.value as DisasterType); setTouched((p) => ({ ...p, disasterType: true })); }}
+                onChange={(e) => { setDisasterType(e.target.value); clearErrors("disasterType"); setTouched((p) => ({ ...p, disasterType: true })); }}
                 className={`w-full border rounded-[9px] px-3 py-2 text-sm text-[#17221D] bg-white transition-colors focus:outline-none ${err("disasterType") ? "border-red-400 focus:border-red-500" : "border-[#DCE6E0] hover:border-[#b0c4b8] focus:border-[#2E7D5B]"}`}
               >
                 <option value="">ধরন নির্বাচন করুন</option>
@@ -182,7 +193,7 @@ export default function ReportForm() {
               label="ঘটনার শিরোনাম"
               placeholder="যেমন: সুনামগঞ্জে হঠাৎ বন্যায় বসতবাড়ি প্লাবিত"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); clearErrors("title"); }}
               onBlur={() => setTouched((p) => ({ ...p, title: true }))}
               error={err("title")}
               required
@@ -197,7 +208,7 @@ export default function ReportForm() {
                 rows={4}
                 maxLength={500}
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => { setDescription(e.target.value); clearErrors("description"); }}
                 onBlur={() => setTouched((p) => ({ ...p, description: true }))}
                 placeholder="ঘটনাটি কীভাবে ঘটেছে, কোন এলাকা আক্রান্ত এবং কী ধরনের সহায়তা প্রয়োজন তা লিখুন।"
                 className={`w-full border rounded-[9px] px-3 py-2 text-sm text-[#17221D] bg-white resize-none transition-colors focus:outline-none ${err("description") ? "border-red-400 focus:border-red-500" : "border-[#DCE6E0] hover:border-[#b0c4b8] focus:border-[#2E7D5B]"}`}
@@ -230,7 +241,7 @@ export default function ReportForm() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={handleGPS}
+                onClick={() => { handleGPS(); clearErrors("location"); }}
                 disabled={locationLoading}
                 className="py-2.5 px-3 text-sm font-medium border-2 border-[#2E7D5B] text-[#2E7D5B] rounded-lg hover:bg-[#E8F5E9] transition-colors flex items-center justify-center gap-2"
               >
@@ -240,7 +251,7 @@ export default function ReportForm() {
               </button>
               <button
                 type="button"
-                onClick={() => setLocationDetected(true)}
+                onClick={() => { setLocationDetected(true); clearErrors("location"); }}
                 className="py-2.5 px-3 text-sm font-medium border border-[#DCE6E0] text-[#66736D] rounded-lg hover:border-[#b0c4b8] transition-colors"
               >
                 🗺️ মানচিত্রে নির্বাচন
@@ -258,7 +269,7 @@ export default function ReportForm() {
               label="নির্দিষ্ট স্থানের নাম"
               placeholder="যেমন: সুনামগঞ্জ সদর উপজেলা"
               value={locationName}
-              onChange={(e) => setLocationName(e.target.value)}
+              onChange={(e) => { setLocationName(e.target.value); clearErrors("location"); }}
               onBlur={() => setTouched((p) => ({ ...p, location: true }))}
               error={err("location")}
             />
@@ -321,7 +332,15 @@ export default function ReportForm() {
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-xl border border-[#DCE6E0] p-4 sticky top-4">
             <h3 className="font-semibold text-[#17221D] text-sm mb-3">মানচিত্রে অবস্থান নির্বাচন করুন</h3>
-            <LocationPicker value={coords} onChange={setCoords} height="300px" />
+            <LocationPicker 
+              value={coords} 
+              onChange={(newCoords) => { 
+                setCoords(newCoords); 
+                setLocationDetected(true); 
+                clearErrors("location");
+              }} 
+              height="300px" 
+            />
             <div className="mt-3 p-3 bg-[#F4FBF6] rounded-lg text-xs text-[#66736D] font-mono">
               <p>অক্ষাংশ: {coords.lat.toFixed(5)}</p>
               <p>দ্রাঘিমাংশ: {coords.lng.toFixed(5)}</p>

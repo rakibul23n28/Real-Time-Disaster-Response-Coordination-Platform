@@ -4,8 +4,8 @@ import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
-import { useAppState } from "../../hooks/useAppState";
-import { useAuth } from "../../hooks/useAuth";
+import LoadingSkeleton from "../../components/common/LoadingSkeleton";
+import { useCitizenReports } from "../../hooks/useCitizenReports";
 
 const statusFilters = [
   { key: "all", label: "সব" },
@@ -19,23 +19,21 @@ const statusFilters = [
 const disasterTypeOptions = ["বন্যা", "ঘূর্ণিঝড়", "নদীভাঙন", "জলাবদ্ধতা", "ভূমিধস", "অন্যান্য"];
 
 export default function MyReports() {
-  const { user } = useAuth();
-  const { reports } = useAppState();
   const navigate = useNavigate();
-  const myReports = reports.filter((r) => r.reporterId === user?.id);
+  const { reports, loading, error } = useCitizenReports({ autoFetch: true });
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
   const filtered = useMemo(() => {
-    return myReports.filter((r) => {
-      const matchSearch = !search || r.title.includes(search) || r.location.name.includes(search) || r.id.includes(search);
+    return reports.filter((r) => {
+      const matchSearch = !search || r.title.includes(search) || r.location.name.includes(search) || String(r.id).includes(search);
       const matchStatus = statusFilter === "all" || r.status === statusFilter;
       const matchType = typeFilter === "all" || r.disasterType === typeFilter;
       return matchSearch && matchStatus && matchType;
     });
-  }, [myReports, search, statusFilter, typeFilter]);
+  }, [reports, search, statusFilter, typeFilter]);
 
   return (
     <div className="max-w-6xl">
@@ -86,7 +84,21 @@ export default function MyReports() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {error && (
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="hidden sm:block bg-white rounded-xl border border-[#DCE6E0] overflow-hidden p-4">
+          <div className="space-y-2">
+            <LoadingSkeleton />
+            <LoadingSkeleton />
+            <LoadingSkeleton />
+          </div>
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState
           title="কোনো রিপোর্ট পাওয়া যায়নি"
           description="বর্তমানে কোনো রিপোর্ট নেই বা ফিল্টার পরিবর্তন করুন।"
@@ -112,7 +124,7 @@ export default function MyReports() {
                       <td className="px-4 py-3.5 text-sm text-[#17221D] max-w-[200px] truncate">{r.title}</td>
                       <td className="px-4 py-3.5 text-sm text-[#66736D] whitespace-nowrap">{r.disasterType}</td>
                       <td className="px-4 py-3.5 text-sm text-[#17221D] whitespace-nowrap">{r.location.name}</td>
-                      <td className="px-4 py-3.5 text-xs text-[#66736D] whitespace-nowrap">{r.displayTime}</td>
+                      <td className="px-4 py-3.5 text-xs text-[#66736D] whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString("bn-BD")}</td>
                       <td className="px-4 py-3.5"><StatusBadge status={r.status} size="sm" /></td>
                       <td className="px-4 py-3.5">
                         <Link to={`/citizen/reports/${r.id}`} className="text-xs font-medium text-[#2E7D5B] hover:underline whitespace-nowrap">বিস্তারিত →</Link>
@@ -138,7 +150,7 @@ export default function MyReports() {
                   <span>·</span>
                   <span>📍 {r.location.name}</span>
                   <span>·</span>
-                  <span>{r.displayTime}</span>
+                  <span>{new Date(r.createdAt).toLocaleDateString("bn-BD")}</span>
                 </div>
                 <Link to={`/citizen/reports/${r.id}`}>
                   <Button size="sm" variant="secondary" fullWidth>বিস্তারিত দেখুন</Button>

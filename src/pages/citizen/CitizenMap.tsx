@@ -1,12 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import PageHeader from "../../components/common/PageHeader";
-import StatusBadge from "../../components/common/StatusBadge";
-import { mockIncidents } from "../../data/mockIncidents";
-import { useEffect } from "react";
+import { apiClient, type Incident } from "../../lib/api";
 
-const severityColor = { high: "#DC2626", medium: "#F59E0B", low: "#16A34A" };
-const severityLabel = { high: "উচ্চ ঝুঁকি", medium: "মাঝারি ঝুঁকি", low: "কম ঝুঁকি" };
+const severityColor = { high: "#DC2626", critical: "#991B1B", medium: "#F59E0B", low: "#16A34A", unassessed: "#64748B" };
+const severityLabel = { high: "উচ্চ ঝুঁকি", critical: "গুরুতর ঝুঁকি", medium: "মাঝারি ঝুঁকি", low: "কম ঝুঁকি", unassessed: "মূল্যায়ন হয়নি" };
 
 function MapCenter({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
@@ -21,7 +19,20 @@ const safetyTips = [
 ];
 
 export default function CitizenMap() {
-  const [selected, setSelected] = useState(mockIncidents[0]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [selected, setSelected] = useState<Incident | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiClient.getIncidents()
+      .then((data) => {
+        setIncidents(data);
+        setSelected(data[0] ?? null);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "ঘটনাসমূহ লোড করা যায়নি।"))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="max-w-7xl space-y-5">
@@ -34,11 +45,11 @@ export default function CitizenMap() {
             <MapContainer center={[23.685, 90.356]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {selected && <MapCenter lat={selected.lat} lng={selected.lng} />}
-              {mockIncidents.map((inc) => (
+              {incidents.map((inc) => (
                 <CircleMarker
                   key={inc.id}
                   center={[inc.lat, inc.lng]}
-                  radius={inc.severity === "high" ? 14 : inc.severity === "medium" ? 10 : 7}
+                  radius={inc.severity === "critical" ? 16 : inc.severity === "high" ? 14 : inc.severity === "medium" ? 10 : 7}
                   pathOptions={{
                     color: severityColor[inc.severity],
                     fillColor: severityColor[inc.severity],
@@ -53,7 +64,6 @@ export default function CitizenMap() {
                       <div className="space-y-0.5 text-sm text-[#66736D]">
                         <p>তীব্রতা: <span className="font-semibold">{severityLabel[inc.severity]}</span></p>
                         <p>আক্রান্ত: {inc.affectedPeople.toLocaleString()} জন</p>
-                        <p>স্বেচ্ছাসেবক: {inc.activeVolunteers} জন</p>
                       </div>
                     </div>
                   </Popup>
@@ -62,7 +72,7 @@ export default function CitizenMap() {
             </MapContainer>
           </div>
           <div className="flex items-center gap-5 mt-3 flex-wrap">
-            {(["high", "medium", "low"] as const).map((s) => (
+            {(["critical", "high", "medium", "low", "unassessed"] as const).map((s) => (
               <span key={s} className="flex items-center gap-2 text-sm text-[#66736D]">
                 <span className="size-3.5 rounded-full" style={{ backgroundColor: severityColor[s] }} />
                 {severityLabel[s]}
@@ -75,7 +85,7 @@ export default function CitizenMap() {
         <div className="space-y-3">
           <h3 className="font-semibold text-[#17221D] text-sm">সক্রিয় ঘটনাসমূহ</h3>
           <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-            {mockIncidents.map((inc) => (
+            {incidents.map((inc) => (
               <button
                 key={inc.id}
                 onClick={() => setSelected(inc)}
@@ -90,6 +100,9 @@ export default function CitizenMap() {
               </button>
             ))}
           </div>
+          {loading && <p className="text-sm text-[#66736D]">ঘটনাসমূহ লোড হচ্ছে...</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {!loading && !error && incidents.length === 0 && <p className="text-sm text-[#66736D]">কোনো সক্রিয় ঘটনা পাওয়া যায়নি।</p>}
         </div>
       </div>
 

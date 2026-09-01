@@ -1,22 +1,36 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { useAppState } from "../../hooks/useAppState";
+import { useCitizenReports } from "../../hooks/useCitizenReports";
 import StatCard from "../../components/common/StatCard";
 import StatusBadge from "../../components/common/StatusBadge";
 import PageHeader from "../../components/common/PageHeader";
 import Button from "../../components/common/Button";
+import LoadingSkeleton from "../../components/common/LoadingSkeleton";
 
 export default function CitizenDashboard() {
   const { user } = useAuth();
-  const { reports } = useAppState();
+  const { reports, loading, error } = useCitizenReports({ autoFetch: true });
 
-  const myReports = reports.filter((r) => r.reporterId === user?.id);
   const stats = {
-    total: myReports.length,
-    verified: myReports.filter((r) => r.status === "verified").length,
-    pending: myReports.filter((r) => r.status === "pending").length,
-    completed: myReports.filter((r) => r.status === "completed").length,
+    total: reports.length,
+    verified: reports.filter((r) => r.status === "verified").length,
+    pending: reports.filter((r) => r.status === "pending").length,
+    completed: reports.filter((r) => r.status === "completed").length,
   };
+
+  if (error) {
+    return (
+      <div className="space-y-6 max-w-5xl">
+        <PageHeader
+          title="নাগরিক ড্যাশবোর্ড"
+          subtitle="আপনার রিপোর্ট ও আশেপাশের দুর্যোগ পরিস্থিতি দেখুন।"
+        />
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -91,40 +105,62 @@ export default function CitizenDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#DCE6E0]">
-              {myReports.slice(0, 5).map((r) => (
-                <tr key={r.id} className="hover:bg-[#F4FBF6] transition-colors">
-                  <td className="px-5 py-3 text-xs font-mono text-[#2E7D5B] font-semibold whitespace-nowrap">{r.id}</td>
-                  <td className="px-5 py-3 text-sm text-[#66736D] whitespace-nowrap">{r.disasterType}</td>
-                  <td className="px-5 py-3 text-sm text-[#17221D] whitespace-nowrap">{r.location.name}</td>
-                  <td className="px-5 py-3 text-xs text-[#66736D] whitespace-nowrap">{r.displayTime}</td>
-                  <td className="px-5 py-3"><StatusBadge status={r.status} size="sm" /></td>
-                  <td className="px-5 py-3">
-                    <Link to={`/citizen/reports/${r.id}`} className="text-xs font-medium text-[#2E7D5B] hover:underline whitespace-nowrap">দেখুন →</Link>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8">
+                    <div className="space-y-2">
+                      <LoadingSkeleton />
+                      <LoadingSkeleton />
+                      <LoadingSkeleton />
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                reports.slice(0, 5).map((r) => (
+                  <tr key={r.id} className="hover:bg-[#F4FBF6] transition-colors">
+                    <td className="px-5 py-3 text-xs font-mono text-[#2E7D5B] font-semibold whitespace-nowrap">{r.id}</td>
+                    <td className="px-5 py-3 text-sm text-[#66736D] whitespace-nowrap">{r.disasterType}</td>
+                    <td className="px-5 py-3 text-sm text-[#17221D] whitespace-nowrap">{r.location.name}</td>
+                    <td className="px-5 py-3 text-xs text-[#66736D] whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString("bn-BD")}</td>
+                    <td className="px-5 py-3"><StatusBadge status={r.status} size="sm" /></td>
+                    <td className="px-5 py-3">
+                      <Link to={`/citizen/reports/${r.id}`} className="text-xs font-medium text-[#2E7D5B] hover:underline whitespace-nowrap">দেখুন →</Link>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile cards */}
         <div className="sm:hidden divide-y divide-[#DCE6E0]">
-          {myReports.slice(0, 5).map((r) => (
-            <div key={r.id} className="p-4 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-mono font-bold text-[#2E7D5B]">{r.id}</span>
-                <StatusBadge status={r.status} size="sm" />
+          {loading ? (
+            <div className="p-4">
+              <div className="space-y-2">
+                <LoadingSkeleton />
+                <LoadingSkeleton />
+                <LoadingSkeleton />
               </div>
-              <p className="text-sm font-semibold text-[#17221D]">{r.title}</p>
-              <p className="text-xs text-[#66736D]">{r.disasterType} · {r.location.name} · {r.displayTime}</p>
-              <Link to={`/citizen/reports/${r.id}`}>
-                <Button size="sm" variant="secondary" fullWidth>বিস্তারিত দেখুন</Button>
-              </Link>
             </div>
-          ))}
+          ) : (
+            reports.slice(0, 5).map((r) => (
+              <div key={r.id} className="p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-mono font-bold text-[#2E7D5B]">{r.id}</span>
+                  <StatusBadge status={r.status} size="sm" />
+                </div>
+                <p className="text-sm font-semibold text-[#17221D]">{r.title}</p>
+                <p className="text-xs text-[#66736D]">{r.disasterType} · {r.location.name} · {new Date(r.createdAt).toLocaleDateString("bn-BD")}</p>
+                <Link to={`/citizen/reports/${r.id}`}>
+                  <Button size="sm" variant="secondary" fullWidth>বিস্তারিত দেখুন</Button>
+                </Link>
+              </div>
+            ))
+          )}
         </div>
 
-        {myReports.length === 0 && (
+        {!loading && reports.length === 0 && (
           <div className="px-5 py-10 text-center">
             <p className="text-sm text-[#66736D]">কোনো রিপোর্ট পাওয়া যায়নি।</p>
             <Link to="/citizen/report" className="text-sm text-[#2E7D5B] font-medium hover:underline mt-1 block">নতুন রিপোর্ট তৈরি করুন →</Link>
