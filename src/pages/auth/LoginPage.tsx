@@ -4,41 +4,49 @@ import Logo from "../../components/common/Logo";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { useAuth } from "../../hooks/useAuth";
-import { type UserRole } from "../../data/mockUsers";
 import DisasterMap from "../../components/maps/DisasterMap";
 
-const demoRoles: { role: UserRole; label: string; sub: string; color: string }[] = [
-  { role: "citizen", label: "নাগরিক হিসেবে দেখুন", sub: "Citizen", color: "border-[#2E7D5B] text-[#2E7D5B] hover:bg-[#E8F5E9]" },
-  { role: "volunteer", label: "স্বেচ্ছাসেবক হিসেবে দেখুন", sub: "Volunteer", color: "border-blue-300 text-blue-700 hover:bg-blue-50" },
-  { role: "admin", label: "প্রশাসক হিসেবে দেখুন", sub: "Admin", color: "border-amber-300 text-amber-700 hover:bg-amber-50" },
-];
-
-const redirectMap: Record<UserRole, string> = {
-  citizen: "/citizen",
-  volunteer: "/volunteer",
-  admin: "/admin",
-};
-
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, error: authError } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleDemoLogin = (role: UserRole) => {
-    login(role);
-    navigate(redirectMap[role]);
+  const redirectMap: Record<string, string> = {
+    citizen: "/citizen",
+    volunteer: "/volunteer",
+    admin: "/admin",
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    // Demo: login as citizen for any credentials
-    login("citizen");
-    navigate("/citizen");
+    setError("");
+    
+    if (!email || !password) {
+      setError("প্লিজ ইমেইল এবং পাসওয়ার্ড প্রবেশ করুন");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await login(email, password);
+      // Get the user from auth context to determine redirect
+      const userRole = localStorage.getItem("duryog-user");
+      if (userRole) {
+        const user = JSON.parse(userRole);
+        navigate(redirectMap[user.role] || "/citizen");
+      } else {
+        navigate("/citizen");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "লগইন ব্যর্থ হয়েছে";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,36 +93,26 @@ export default function LoginPage() {
               <p className="text-sm text-[#66736D] mt-1">আপনার অ্যাকাউন্টে প্রবেশ করুন</p>
             </div>
 
-            {/* Demo accounts */}
-            <div className="mb-6 p-4 bg-[#F4FBF6] rounded-xl border border-[#DCE6E0]">
-              <p className="text-xs font-semibold text-[#66736D] uppercase tracking-wide mb-3">ডেমো অ্যাকাউন্ট</p>
-              <div className="flex flex-col gap-2">
-                {demoRoles.map((d) => (
-                  <button
-                    key={d.role}
-                    onClick={() => handleDemoLogin(d.role)}
-                    className={`w-full py-2 px-3 text-sm font-medium border rounded-lg transition-colors text-left flex items-center justify-between ${d.color}`}
-                  >
-                    <span>{d.label}</span>
-                    <span className="text-[10px] opacity-60 font-mono">{d.sub}</span>
-                  </button>
-                ))}
+            {(error || authError) && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error || authError}</p>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-[#DCE6E0]" />
-              <span className="text-xs text-[#66736D]">অথবা ম্যানুয়ালি লগইন করুন</span>
+              <span className="text-xs text-[#66736D]">আপনার অ্যাকাউন্টে লগইন করুন</span>
               <div className="flex-1 h-px bg-[#DCE6E0]" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
-                label="ইমেইল / মোবাইল নম্বর"
+                label="ইমেইল"
                 type="email"
                 placeholder="example@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
                 leftIcon={
                   <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -127,6 +125,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
                 leftIcon={
                   <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

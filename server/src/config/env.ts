@@ -23,6 +23,6 @@ export const env = {
     expiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   },
 
-  frontendUrl:  process.env.FRONTEND_URL  ?? "http://localhost:5173",
+  frontendUrl:  process.env.CLIENT_URL  ?? "http://localhost:8443",
   maxFileSize:  parseInt(process.env.MAX_FILE_SIZE ?? "5242880", 10),
 };

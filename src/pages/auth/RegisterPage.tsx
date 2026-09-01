@@ -4,23 +4,66 @@ import Logo from "../../components/common/Logo";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { useAuth } from "../../hooks/useAuth";
-import { type UserRole } from "../../data/mockUsers";
 
 const skillOptions = ["উদ্ধার", "প্রাথমিক চিকিৎসা", "রান্না", "নৌচালনা", "গাড়ি চালানো", "যোগাযোগ", "লজিস্টিক্স"];
 const districtOptions = ["ঢাকা", "চট্টগ্রাম", "সিলেট", "রাজশাহী", "খুলনা", "বরিশাল", "ময়মনসিংহ", "রংপুর", "সুনামগঞ্জ", "কক্সবাজার"];
 
 export default function RegisterPage() {
-  const { login } = useAuth();
+  const { register, error: authError } = useAuth();
   const navigate = useNavigate();
+  
   const [role, setRole] = useState<"citizen" | "volunteer">("citizen");
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    login(role as UserRole);
-    navigate(role === "citizen" ? "/citizen" : "/volunteer");
+    setError("");
+
+    // Validation
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError("সকল ক্ষেত্র পূরণ করুন");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("পাসওয়ার্ড মিলছে না");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone || undefined,
+        role: role,
+      });
+      navigate(role === "citizen" ? "/citizen" : "/volunteer");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "নিবন্ধন ব্যর্থ হয়েছে";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,6 +81,12 @@ export default function RegisterPage() {
             <p className="text-sm text-[#66736D] mt-1">Create Account</p>
           </div>
 
+          {(error || authError) && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error || authError}</p>
+            </div>
+          )}
+
           {/* Role selection */}
           <div className="mb-6">
             <p className="text-sm font-medium text-[#17221D] mb-3">আপনি কীভাবে প্ল্যাটফর্ম ব্যবহার করবেন?</p>
@@ -45,6 +94,7 @@ export default function RegisterPage() {
               {(["citizen", "volunteer"] as const).map((r) => (
                 <button
                   key={r}
+                  type="button"
                   onClick={() => setRole(r)}
                   className={`py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
                     role === r
@@ -62,43 +112,54 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="পূর্ণ নাম" type="text" placeholder="আপনার পূর্ণ নাম" required />
+            <Input
+              label="পূর্ণ নাম"
+              type="text"
+              name="name"
+              placeholder="আপনার পূর্ণ নাম"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+            />
             <div className="grid grid-cols-2 gap-4">
-              <Input label="ইমেইল" type="email" placeholder="email@example.com" required />
-              <Input label="মোবাইল নম্বর" type="tel" placeholder="01XXX-XXXXXX" required />
+              <Input
+                label="ইমেইল"
+                type="email"
+                name="email"
+                placeholder="email@example.com"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
+              <Input
+                label="মোবাইল নম্বর"
+                type="tel"
+                name="phone"
+                placeholder="01XXX-XXXXXX"
+                value={formData.phone}
+                onChange={handleInputChange}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="পাসওয়ার্ড" type="password" placeholder="••••••••" required />
-              <Input label="পাসওয়ার্ড নিশ্চিত করুন" type="password" placeholder="••••••••" required />
+              <Input
+                label="পাসওয়ার্ড"
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+              />
+              <Input
+                label="পাসওয়ার্ড নিশ্চিত করুন"
+                type="password"
+                name="confirmPassword"
+                placeholder="••••••••"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                required
+              />
             </div>
-
-            {/* Volunteer extras */}
-            {role === "volunteer" && (
-              <div className="space-y-4 pt-2 border-t border-[#DCE6E0]">
-                <p className="text-xs font-semibold text-[#66736D] uppercase tracking-wide">স্বেচ্ছাসেবক তথ্য</p>
-                <div>
-                  <label className="text-sm font-medium text-[#17221D] block mb-1.5">দক্ষতার ধরন</label>
-                  <div className="flex flex-wrap gap-2">
-                    {skillOptions.map((s) => (
-                      <label key={s} className="flex items-center gap-1.5 text-sm text-[#66736D] cursor-pointer">
-                        <input type="checkbox" className="accent-[#2E7D5B] rounded" />
-                        {s}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-[#17221D] block mb-1.5">এলাকা</label>
-                  <select className="w-full border border-[#DCE6E0] rounded-[9px] px-3 py-2 text-sm text-[#17221D] bg-white hover:border-[#b0c4b8] focus:border-[#2E7D5B] focus:outline-none">
-                    <option value="">জেলা নির্বাচন করুন</option>
-                    {districtOptions.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <Input label="জরুরি যোগাযোগ নম্বর" type="tel" placeholder="01XXX-XXXXXX" />
-              </div>
-            )}
 
             <Button type="submit" fullWidth loading={loading} className="mt-2">
               নিবন্ধন করুন
