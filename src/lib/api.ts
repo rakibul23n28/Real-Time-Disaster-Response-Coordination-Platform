@@ -243,6 +243,23 @@ class ApiClient {
     }));
   }
 
+  async getPublicIncidents(): Promise<Incident[]> {
+    const response = await fetch(`${API_BASE_URL}/public/incidents`);
+    const data = await this.handleResponse<ApiResponse<any[]>>(response);
+    return data.data.map((incident) => ({
+      id: Number(incident.id),
+      code: incident.code,
+      lat: Number(incident.latitude),
+      lng: Number(incident.longitude),
+      severity: incident.severity || "unassessed",
+      status: incident.status,
+      location: incident.locationName || "",
+      disasterType: incident.disasterType || "",
+      affectedPeople: Number(incident.affected_people || 0),
+      activeVolunteers: Number(incident.activeVolunteers || 0),
+    }));
+  }
+
   async getPublicLandingData(): Promise<{ stats: LandingStats; incidents: Incident[] }> {
     const [summaryResponse, incidentsResponse] = await Promise.all([
       fetch(`${API_BASE_URL}/public/landing`),

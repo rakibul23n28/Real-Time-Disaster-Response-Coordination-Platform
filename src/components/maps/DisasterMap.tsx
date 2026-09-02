@@ -1,5 +1,6 @@
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import { mockIncidents } from "../../data/mockIncidents";
+import { useEffect, useState } from "react";
+import { apiClient, type Incident } from "../../lib/api";
 
 type MapIncident = {
   id: string | number;
@@ -18,7 +19,16 @@ const severityColor = {
   low: "#16A34A",
 };
 
-export default function DisasterMap({ height = "400px", incidents = mockIncidents }: { height?: string; incidents?: MapIncident[] }) {
+export default function DisasterMap({ height = "400px", incidents }: { height?: string; incidents?: MapIncident[] }) {
+  const [apiIncidents, setApiIncidents] = useState<Incident[]>([]);
+
+  useEffect(() => {
+    if (incidents) return;
+    apiClient.getPublicIncidents().then(setApiIncidents).catch(() => undefined);
+  }, [incidents]);
+
+  const visibleIncidents = incidents ?? apiIncidents;
+
   return (
     <div style={{ height }} className="rounded-xl overflow-hidden border border-[#DCE6E0]">
       <MapContainer
@@ -32,7 +42,7 @@ export default function DisasterMap({ height = "400px", incidents = mockIncident
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {incidents.map((incident) => (
+        {visibleIncidents.map((incident) => (
           <CircleMarker
             key={incident.id}
             center={[incident.lat, incident.lng]}
