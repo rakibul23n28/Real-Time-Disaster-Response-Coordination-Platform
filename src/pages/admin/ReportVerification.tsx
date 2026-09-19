@@ -4,7 +4,7 @@ import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
-import { useAppState } from "../../hooks/useAppState";
+import { useAdminData } from "../../hooks/useAdminData";
 
 const disasterTypeBn: Record<string, string> = {
   flood: "বন্যা", cyclone: "ঘূর্ণিঝড়", river_erosion: "নদীভাঙন",
@@ -34,7 +34,7 @@ const severityFilters = [
 ];
 
 export default function ReportVerification() {
-  const { reports } = useAppState();
+  const { reports } = useAdminData();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");

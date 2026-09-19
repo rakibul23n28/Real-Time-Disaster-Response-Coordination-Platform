@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
-import { mockIncidents } from "../../data/mockIncidents";
+import Button from "../../components/common/Button";
+import { useAdminData } from "../../hooks/useAdminData";
+import { apiClient } from "../../lib/api";
 
 type DamageLevel = "low" | "medium" | "high" | "extreme";
 type MedicalNeed = "yes" | "no";
@@ -38,20 +40,10 @@ function scoreLabel(score: number): { label: string; color: string; bg: string }
   return { label: "কম", color: "text-green-700", bg: "bg-green-50 border-green-200" };
 }
 
-const incidentScores = mockIncidents.map((inc) => ({
-  ...inc,
-  score: calculateScore({
-    affectedPeople: inc.affectedPeople,
-    damageLevel: inc.severity === "high" ? "extreme" : inc.severity === "medium" ? "high" : "medium",
-    medicalNeed: inc.severity === "high" ? "yes" : "no",
-    roadStatus: inc.severity === "high" ? "blocked" : inc.severity === "medium" ? "partial" : "normal",
-    shelterStatus: inc.severity === "high" ? "inadequate" : inc.severity === "medium" ? "limited" : "adequate",
-  }),
-})).sort((a, b) => b.score - a.score);
-
-const maxPeople = Math.max(...mockIncidents.map((i) => i.affectedPeople));
-
 export default function SeverityAnalysis() {
+  const { incidents, reports } = useAdminData();
+  const [saving, setSaving] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState(0);
   const [inputs, setInputs] = useState<CalcInputs>({
     affectedPeople: 320,
     damageLevel: "high",
@@ -62,6 +54,32 @@ export default function SeverityAnalysis() {
 
   const score = calculateScore(inputs);
   const { label, color, bg } = scoreLabel(score);
+  const incidentScores = incidents.map((inc) => ({
+    ...inc,
+    score: calculateScore({
+      affectedPeople: inc.affectedPeople,
+      damageLevel: inc.severity === "high" || inc.severity === "critical" ? "extreme" : inc.severity === "medium" ? "high" : "medium",
+      medicalNeed: inc.severity === "high" || inc.severity === "critical" ? "yes" : "no",
+      roadStatus: inc.severity === "high" || inc.severity === "critical" ? "blocked" : inc.severity === "medium" ? "partial" : "normal",
+      shelterStatus: inc.severity === "high" || inc.severity === "critical" ? "inadequate" : inc.severity === "medium" ? "limited" : "adequate",
+    }),
+  })).sort((a, b) => b.score - a.score);
+  const maxPeople = Math.max(1, ...incidents.map((i) => i.affectedPeople));
+
+  const saveAssessment = async () => {
+    const reportId = selectedReportId;
+    if (!reportId) return;
+    setSaving(true);
+    try {
+      await apiClient.saveSeverity(reportId, {
+        affected_people_score: inputs.affectedPeople >= 500 ? 20 : inputs.affectedPeople >= 200 ? 15 : inputs.affectedPeople >= 50 ? 10 : 5,
+        damage_score: { low: 5, medium: 12, high: 16, extreme: 20 }[inputs.damageLevel],
+        medical_emergency_score: inputs.medicalNeed === "yes" ? 15 : 0,
+        road_access_score: { normal: 0, partial: 7, blocked: 15 }[inputs.roadStatus],
+        shelter_score: { adequate: 0, limited: 5, inadequate: 10 }[inputs.shelterStatus],
+      });
+    } finally { setSaving(false); }
+  };
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -71,6 +89,14 @@ export default function SeverityAnalysis() {
         {/* Calculator form */}
         <div className="bg-white rounded-xl border border-[#DCE6E0] p-5">
           <h2 className="font-semibold text-[#17221D] mb-4">তীব্রতা ক্যালকুলেটর</h2>
+          <div className="mb-4 space-y-2">
+            <label className="text-sm font-medium text-[#17221D] block">যে রিপোর্টে প্রয়োগ হবে</label>
+            <select value={selectedReportId} onChange={(event) => setSelectedReportId(Number(event.target.value))} className="input-base bg-white">
+              <option value={0}>রিপোর্ট নির্বাচন করুন</option>
+              {reports.map((report) => <option key={report.id} value={report.id}>{report.id} · {report.title}</option>)}
+            </select>
+            <Button onClick={saveAssessment} loading={saving} disabled={!selectedReportId} size="sm">সার্ভারে সংরক্ষণ করুন</Button>
+          </div>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-[#17221D] block mb-1.5">
@@ -172,7 +198,7 @@ export default function SeverityAnalysis() {
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4">
         {(["high", "medium", "low"] as const).map((s) => {
-          const count = mockIncidents.filter((i) => i.severity === s).length;
+          const count = incidents.filter((i) => i.severity === s).length;
           const cfg = { high: { label: "উচ্চ ঝুঁকি", color: "text-red-700", bg: "bg-red-50 border-red-200" }, medium: { label: "মাঝারি ঝুঁকি", color: "text-amber-700", bg: "bg-amber-50 border-amber-200" }, low: { label: "কম ঝুঁকি", color: "text-green-700", bg: "bg-green-50 border-green-200" } }[s];
           return (
             <div key={s} className={`rounded-xl border p-4 text-center ${cfg.bg}`}>

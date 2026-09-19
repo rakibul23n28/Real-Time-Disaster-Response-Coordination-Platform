@@ -62,6 +62,7 @@ export interface Report {
   severity: "high" | "medium" | "low";
   reporterName: string;
   createdAt: string;
+  displayTime: string;
 }
 
 export interface CreateReportInput {
@@ -125,8 +126,49 @@ export interface ApiNotification {
   created_at: string;
 }
 
+export interface ApiResource {
+  id: number;
+  name: string;
+  category: "food" | "water" | "medical" | "other";
+  unit: string;
+  description?: string | null;
+}
+
+export interface ApiInventory {
+  id: number;
+  resource_id: number;
+  quantity: number;
+  depot_name: string;
+  resource_name: string;
+  category: ApiResource["category"];
+  unit: string;
+  location_name?: string | null;
+}
+
+export interface ApiAllocation {
+  id: number;
+  allocation_code: string;
+  report_id?: number | null;
+  resource_id: number;
+  quantity: number;
+  resource_name: string;
+  unit: string;
+  allocated_by_name?: string;
+  created_at: string;
+}
+
+export interface AdminDashboardData {
+  report_stats: Record<string, number>;
+  task_stats: Record<string, number>;
+  issue_stats: Record<string, number>;
+  inventory_alerts: Array<Record<string, unknown>>;
+  recent_reports: Array<Record<string, unknown>>;
+  total_affected: number;
+}
+
 // Transform backend snake_case data to frontend camelCase format
 function transformReportFromBackend(data: any): Report {
+  const createdAt = data.created_at || "";
   return {
     id: data.id,
     reporterId: data.reporter_id,
@@ -146,7 +188,8 @@ function transformReportFromBackend(data: any): Report {
     status: data.status || "pending",
     severity: data.severity || "low",
     reporterName: data.reporter_name || "",
-    createdAt: data.created_at,
+    createdAt,
+    displayTime: createdAt ? new Date(createdAt).toLocaleString("bn-BD") : "",
   };
 }
 
@@ -260,13 +303,110 @@ class ApiClient {
     if (filters?.reporterId) params.append("reporterId", String(filters.reporterId));
 
     const queryString = params.toString();
-    const url = `${API_BASE_URL}/reports${queryString ? "?" + queryString : ""}`;
+    const url = `${API_BASE_URL}/reports${queryString ? "?" + queryString : "?limit=100"}`;
     const response = await fetch(url, {
       method: "GET",
       headers: this.getHeaders(),
     });
     const data = await this.handleResponse<ApiResponse<any[]>>(response);
     return data.data.map(transformReportFromBackend);
+  }
+
+  async getAdminDashboard(): Promise<AdminDashboardData> {
+    const response = await fetch(`${API_BASE_URL}/dashboard/admin`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<AdminDashboardData>>(response);
+    return data.data;
+  }
+
+  async updateReportStatus(id: number, status: Report["status"]): Promise<Report> {
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/status`, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    const data = await this.handleResponse<ApiResponse<any>>(response);
+    return transformReportFromBackend(data.data);
+  }
+
+  async requestReportInfo(id: number, message: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/request-info`, {
+      method: "POST", headers: this.getHeaders(), body: JSON.stringify({ message }),
+    });
+    await this.handleResponse<ApiResponse<null>>(response);
+  }
+
+  async updateIssueStatus(id: number, status: "reported" | "in_progress" | "resolved"): Promise<ApiIssue> {
+    const response = await fetch(`${API_BASE_URL}/issues/${id}/status`, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiIssue>>(response);
+    return data.data;
+  }
+
+  async getResources(): Promise<ApiResource[]> {
+    const response = await fetch(`${API_BASE_URL}/resources?limit=100`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<ApiResource[]>>(response);
+    return data.data;
+  }
+
+  async createResource(input: Omit<ApiResource, "id">): Promise<ApiResource> {
+    const response = await fetch(`${API_BASE_URL}/resources`, {
+      method: "POST", headers: this.getHeaders(), body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiResource>>(response);
+    return data.data;
+  }
+
+  async getInventory(): Promise<ApiInventory[]> {
+    const response = await fetch(`${API_BASE_URL}/inventory?limit=100`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<ApiInventory[]>>(response);
+    return data.data;
+  }
+
+  async createInventory(input: { resource_id: number; quantity: number; depot_name: string }): Promise<ApiInventory> {
+    const response = await fetch(`${API_BASE_URL}/inventory`, {
+      method: "POST", headers: this.getHeaders(), body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiInventory>>(response);
+    return data.data;
+  }
+
+  async updateInventory(id: number, input: { quantity?: number; depot_name?: string }): Promise<ApiInventory> {
+    const response = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      method: "PATCH", headers: this.getHeaders(), body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiInventory>>(response);
+    return data.data;
+  }
+
+  async getAllocations(): Promise<ApiAllocation[]> {
+    const response = await fetch(`${API_BASE_URL}/allocations?limit=100`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<ApiAllocation[]>>(response);
+    return data.data;
+  }
+
+  async allocateResource(input: { report_id?: number; resource_id: number; quantity: number }): Promise<{ id: number; allocation_code: string }> {
+    const response = await fetch(`${API_BASE_URL}/allocations`, {
+      method: "POST", headers: this.getHeaders(), body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<{ id: number; allocation_code: string }>>(response);
+    return data.data;
+  }
+
+  async saveSeverity(reportId: number, input: {
+    affected_people_score: number;
+    damage_score: number;
+    medical_emergency_score: number;
+    road_access_score: number;
+    shelter_score: number;
+  }): Promise<Record<string, unknown>> {
+    const response = await fetch(`${API_BASE_URL}/reports/${reportId}/severity`, {
+      method: "POST", headers: this.getHeaders(), body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<Record<string, unknown>>>(response);
+    return data.data;
   }
 
   async getIncidents(): Promise<Incident[]> {

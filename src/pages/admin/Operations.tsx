@@ -4,7 +4,8 @@ import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
 import PriorityBadge from "../../components/common/PriorityBadge";
 import Button from "../../components/common/Button";
-import { useAppState } from "../../hooks/useAppState";
+import { useAdminData } from "../../hooks/useAdminData";
+import { issueTypeConfig } from "../../data/issueTypes";
 import { useToast } from "../../components/common/Toast";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -43,7 +44,7 @@ function taskStepIndex(status: string): number {
 }
 
 export default function Operations() {
-  const { tasks, issues, updateIssueStatus } = useAppState();
+  const { tasks, issues, updateIssueStatus } = useAdminData();
   const { showToast } = useToast();
   const [selectedTask, setSelectedTask] = useState<typeof tasks[0] | null>(null);
 
@@ -92,7 +93,7 @@ export default function Operations() {
                       <PriorityBadge priority={task.priority} />
                     </div>
                     <p className="text-sm font-semibold text-[#17221D]">{task.title}</p>
-                    <p className="text-xs text-[#66736D]">📍 {task.location.name} · 👤 {task.assignedVolunteers.length} জন</p>
+                    <p className="text-xs text-[#66736D]">📍 {task.location_name ?? "অজানা স্থান"} · 👤 {task.assignments?.length ?? 0} জন</p>
                   </div>
                   <StatusBadge status={task.status} size="sm" />
                 </div>
@@ -121,15 +122,15 @@ export default function Operations() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                   <div><p className="text-xs text-[#66736D]">কাজ</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.title}</p></div>
-                  <div><p className="text-xs text-[#66736D]">এলাকা</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.location.name}</p></div>
-                  <div><p className="text-xs text-[#66736D]">স্বেচ্ছাসেবক</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.assignedVolunteers.length} জন</p></div>
-                  <div><p className="text-xs text-[#66736D]">আক্রান্ত</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.affectedPeople.toLocaleString()} জন</p></div>
+                  <div><p className="text-xs text-[#66736D]">এলাকা</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.location_name ?? "অজানা স্থান"}</p></div>
+                  <div><p className="text-xs text-[#66736D]">স্বেচ্ছাসেবক</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.assignments?.length ?? 0} জন</p></div>
+                  <div><p className="text-xs text-[#66736D]">অগ্রগতি</p><p className="font-semibold text-[#17221D] text-xs">{selectedTask.progress ?? statusProgress[selectedTask.status] ?? 0}%</p></div>
                 </div>
                 <div className="rounded-xl overflow-hidden mb-3" style={{ height: "160px" }}>
-                  <MapContainer center={[selectedTask.location.lat, selectedTask.location.lng]} zoom={9} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} zoomControl={false}>
+                  <MapContainer center={[Number(selectedTask.loc_lat ?? 23.685), Number(selectedTask.loc_lng ?? 90.356)]} zoom={9} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} zoomControl={false}>
                     <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <Marker position={[selectedTask.location.lat, selectedTask.location.lng]} icon={defaultIcon}>
-                      <Popup>{selectedTask.location.name}</Popup>
+                    <Marker position={[Number(selectedTask.loc_lat ?? 23.685), Number(selectedTask.loc_lng ?? 90.356)]} icon={defaultIcon}>
+                      <Popup>{selectedTask.location_name}</Popup>
                     </Marker>
                   </MapContainer>
                 </div>
@@ -169,15 +170,16 @@ export default function Operations() {
                 <p className="text-xs text-[#66736D] text-center py-6">কোনো সমস্যা নেই।</p>
               ) : (
                 issues.slice(0, 5).map((issue) => {
-                  const sc = issueStatusConfig[issue.status];
+                  const uiStatus = issue.status === "in_progress" ? "acknowledged" : issue.status;
+                  const sc = issueStatusConfig[uiStatus];
                   return (
                     <div key={issue.id} className="px-4 py-3 hover:bg-[#F4FBF6] transition-colors">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-base">{issue.icon}</span>
+                          <span className="text-base">{issueTypeConfig[issue.issue_type].icon}</span>
                           <div>
-                            <p className="text-xs font-semibold text-[#17221D]">{issue.label}</p>
-                            <p className="text-[10px] text-[#66736D]">📍 {issue.location.name} · {issue.displayTime}</p>
+                            <p className="text-xs font-semibold text-[#17221D]">{issueTypeConfig[issue.issue_type].label}</p>
+                            <p className="text-[10px] text-[#66736D]">📍 {issue.location_name ?? "অজানা স্থান"} · {new Date(issue.created_at).toLocaleString("bn-BD")}</p>
                           </div>
                         </div>
                         <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${sc.color}`}>{sc.label}</span>
@@ -185,7 +187,7 @@ export default function Operations() {
                       {issue.status === "reported" && (
                         <button
                           onClick={() => {
-                            updateIssueStatus(issue.id, "acknowledged");
+                            void updateIssueStatus(issue.id, "in_progress");
                             showToast("সমস্যাটি দেখা হয়েছে হিসেবে চিহ্নিত করা হয়েছে।", "success");
                           }}
                           className="text-[10px] text-blue-600 font-medium hover:underline mr-2"

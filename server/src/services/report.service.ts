@@ -135,6 +135,20 @@ export async function updateReportStatus(id: number, input: UpdateReportStatusIn
   return getReportById(id);
 }
 
+export async function requestInfo(id: number, message: string) {
+  const [rows] = await pool.execute<RowDataPacket[]>(`SELECT citizen_id, title FROM reports WHERE id = ?`, [id]);
+  if (!rows[0]) throw Object.assign(new Error("Report not found"), { status: 404 });
+  const report = rows[0] as { citizen_id: number; title: string };
+  await createNotification(null, {
+    userId: report.citizen_id,
+    title: "রিপোর্ট সম্পর্কে আরও তথ্য প্রয়োজন",
+    message,
+    type: "warning",
+    referenceType: "report",
+    referenceId: id,
+  });
+}
+
 export async function deleteReport(id: number, citizenId: number, isAdmin: boolean) {
   const [rows] = await pool.execute<ReportRow[]>(
     `SELECT id, citizen_id FROM reports WHERE id = ?`, [id]

@@ -17,6 +17,10 @@ export const updateReportStatusSchema = z.object({
   status: z.enum(["pending", "verified", "rejected", "in_progress", "completed"]),
 });
 
+export const requestReportInfoSchema = z.object({
+  message: z.string().min(1).max(1000),
+});
+
 export const reportFilterSchema = z.object({
   status:       z.enum(["pending", "verified", "rejected", "in_progress", "completed"]).optional(),
   severity:     z.enum(["unassessed", "low", "medium", "high", "critical"]).optional(),
@@ -28,4 +32,5 @@ export const reportFilterSchema = z.object({
 
 export type CreateReportInput       = z.infer<typeof createReportSchema>;
 export type UpdateReportStatusInput = z.infer<typeof updateReportStatusSchema>;
+export type RequestReportInfoInput = z.infer<typeof requestReportInfoSchema>;
 export type ReportFilterInput       = z.infer<typeof reportFilterSchema>;

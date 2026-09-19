@@ -5,7 +5,7 @@ import { authenticate } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 import { validate } from "../middleware/validation.middleware.js";
 import { uploadImages } from "../middleware/upload.middleware.js";
-import { createReportSchema, updateReportStatusSchema, reportFilterSchema } from "../validations/report.validation.js";
+import { createReportSchema, updateReportStatusSchema, reportFilterSchema, requestReportInfoSchema } from "../validations/report.validation.js";
 import { createSeveritySchema } from "../validations/severity.validation.js";
 
 const router = Router();
@@ -17,6 +17,7 @@ router.get( "/:id",                                                             
 router.patch("/:id",              requireRole("citizen","admin"),               ctrl.updateReportStatus); // citizens patch their own; handled in service
 router.delete("/:id",             requireRole("citizen","admin"),               ctrl.deleteReport);
 router.patch("/:id/status",       requireRole("admin"),          validate(updateReportStatusSchema), ctrl.updateReportStatus);
+router.post( "/:id/request-info", requireRole("admin"),          validate(requestReportInfoSchema), ctrl.requestInfo);
 
 // Severity sub-resource
 router.post("/:id/severity",      requireRole("admin"),          validate(createSeveritySchema), sevCtrl.createSeverity);

@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import PageHeader from "../../components/common/PageHeader";
 import Button from "../../components/common/Button";
-import { useAppState } from "../../hooks/useAppState";
+import { useAdminData } from "../../hooks/useAdminData";
 import { useToast } from "../../components/common/Toast";
-import { categoryConfig, stockStatusConfig, type InventoryCategory, type InventoryItem } from "../../data/mockInventory";
+import { categoryConfig, type InventoryCategory } from "../../data/inventoryTypes";
+import type { ApiInventory } from "../../lib/api";
 
 const reduceReasons = ["ত্রাণ বিতরণ", "অন্য কেন্দ্রে স্থানান্তর", "ক্ষতিগ্রস্ত", "অন্যান্য"];
 const categories: { key: string; label: string }[] = [
@@ -12,61 +13,53 @@ const categories: { key: string; label: string }[] = [
 ];
 
 export default function InventoryManagement() {
-  const { inventory, adjustInventory, addInventoryItem } = useAppState();
+  const { inventory, resources, adjustInventory, addInventory } = useAdminData();
   const { showToast } = useToast();
   const [catFilter, setCatFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [addModal, setAddModal] = useState(false);
-  const [adjustItem, setAdjustItem] = useState<{ item: InventoryItem; type: "add" | "reduce" } | null>(null);
+  const [adjustItem, setAdjustItem] = useState<{ item: ApiInventory; type: "add" | "reduce" } | null>(null);
   const [adjustQty, setAdjustQty] = useState(0);
   const [reduceReason, setReduceReason] = useState(reduceReasons[0]);
   const [loading, setLoading] = useState(false);
 
   // Add form state
-  const [newItem, setNewItem] = useState({ nameBn: "", category: "food" as InventoryCategory, quantity: 0, unit: "", depot: "" });
+  const [newItem, setNewItem] = useState({ category: "food" as InventoryCategory, quantity: 0, depot: "", resourceId: 0 });
 
   const filtered = useMemo(() => inventory.filter((item) => {
     const matchCat = catFilter === "all" || item.category === catFilter;
-    const matchSearch = !search || item.nameBn.includes(search) || item.depot.includes(search);
+    const matchSearch = !search || item.resource_name.includes(search) || item.depot_name.includes(search);
     return matchCat && matchSearch;
   }), [inventory, catFilter, search]);
 
   const totalItems = inventory.length;
-  const criticalCount = inventory.filter((i) => i.status === "critical").length;
-  const lowCount = inventory.filter((i) => i.status === "low").length;
+  const criticalCount = inventory.filter((i) => i.quantity < 100).length;
+  const lowCount = inventory.filter((i) => i.quantity >= 100 && i.quantity < 300).length;
 
   const handleAdjust = async () => {
     if (!adjustItem) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
     const delta = adjustItem.type === "add" ? adjustQty : -adjustQty;
-    adjustInventory(adjustItem.item.id, delta);
-    setLoading(false);
-    setAdjustItem(null);
-    setAdjustQty(0);
-    showToast(adjustItem.type === "add" ? "মজুত সফলভাবে যোগ করা হয়েছে।" : "মজুত হ্রাস করা হয়েছে।", "success");
+    try {
+      await adjustInventory(adjustItem.item, delta);
+      setAdjustItem(null);
+      setAdjustQty(0);
+      showToast(adjustItem.type === "add" ? "মজুত সফলভাবে যোগ করা হয়েছে।" : "মজুত হ্রাস করা হয়েছে।", "success");
+    } catch (err) { showToast(err instanceof Error ? err.message : "মজুত আপডেট করা যায়নি।", "error"); }
+    finally { setLoading(false); }
   };
 
   const handleAdd = async () => {
-    if (!newItem.nameBn.trim() || !newItem.unit.trim() || newItem.quantity <= 0) return;
+    const resourceId = newItem.resourceId || resources.find((resource) => resource.category === newItem.category)?.id;
+    if (!resourceId || newItem.quantity <= 0) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-    const item: InventoryItem = {
-      id: `INV-${String(inventory.length + 1).padStart(3, "0")}`,
-      nameBn: newItem.nameBn,
-      category: newItem.category,
-      total: newItem.quantity,
-      available: newItem.quantity,
-      allocated: 0,
-      unit: newItem.unit,
-      depot: newItem.depot || "কেন্দ্রীয় গুদাম",
-      status: "adequate",
-    };
-    addInventoryItem(item);
-    setLoading(false);
-    setAddModal(false);
-    setNewItem({ nameBn: "", category: "food", quantity: 0, unit: "", depot: "" });
-    showToast("নতুন সামগ্রী মজুতে যোগ করা হয়েছে।", "success");
+    try {
+      await addInventory({ resource_id: resourceId, quantity: newItem.quantity, depot_name: newItem.depot || "কেন্দ্রীয় গুদাম" });
+      setAddModal(false);
+      setNewItem({ category: "food", quantity: 0, depot: "", resourceId: 0 });
+      showToast("নতুন সামগ্রী মজুতে যোগ করা হয়েছে।", "success");
+    } catch (err) { showToast(err instanceof Error ? err.message : "নতুন মজুত যোগ করা যায়নি।", "error"); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -126,25 +119,24 @@ export default function InventoryManagement() {
             <tbody className="divide-y divide-[#DCE6E0]">
               {filtered.map((item) => {
                 const cfg = categoryConfig[item.category];
-                const sc = stockStatusConfig[item.status];
-                const pct = Math.round((item.available / item.total) * 100);
+                const pct = item.quantity > 0 ? 100 : 0;
                 return (
                   <tr key={item.id} className="hover:bg-[#F4FBF6] transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-semibold text-[#17221D]">{item.nameBn}</p>
+                      <p className="text-sm font-semibold text-[#17221D]">{item.resource_name}</p>
                       <div className="w-24 h-1.5 bg-[#F4FBF6] rounded-full overflow-hidden mt-1">
-                        <div className={`h-full rounded-full ${item.status === "adequate" ? "bg-[#2E7D5B]" : item.status === "low" ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${pct}%` }} />
+                        <div className={`h-full rounded-full ${item.quantity >= 300 ? "bg-[#2E7D5B]" : item.quantity >= 100 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${pct}%` }} />
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs text-[#66736D]">{cfg.icon} {cfg.label}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-[#17221D]">{item.total.toLocaleString()} <span className="text-xs text-[#66736D]">{item.unit}</span></td>
-                    <td className="px-4 py-3 text-sm font-bold text-[#2E7D5B]">{item.available.toLocaleString()} <span className="text-xs text-[#66736D] font-normal">{item.unit}</span></td>
-                    <td className="px-4 py-3 text-sm text-amber-600 font-medium">{item.allocated.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-xs text-[#66736D]">{item.depot}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-[#17221D]">{item.quantity.toLocaleString()} <span className="text-xs text-[#66736D]">{item.unit}</span></td>
+                    <td className="px-4 py-3 text-sm font-bold text-[#2E7D5B]">{item.quantity.toLocaleString()} <span className="text-xs text-[#66736D] font-normal">{item.unit}</span></td>
+                    <td className="px-4 py-3 text-sm text-amber-600 font-medium">-</td>
+                    <td className="px-4 py-3 text-xs text-[#66736D]">{item.depot_name}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${sc.color}`}>{sc.label}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${item.quantity < 100 ? "text-red-700 bg-red-50 border-red-200" : item.quantity < 300 ? "text-amber-700 bg-amber-50 border-amber-200" : "text-green-700 bg-green-50 border-green-200"}`}>{item.quantity < 100 ? "জরুরি" : item.quantity < 300 ? "কম" : "পর্যাপ্ত"}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
@@ -171,10 +163,6 @@ export default function InventoryManagement() {
         <ModalWrap onClose={() => setAddModal(false)}>
           <h3 className="text-lg font-bold text-[#17221D] mb-4">নতুন সামগ্রী যোগ করুন</h3>
           <div className="space-y-4 mb-5">
-            <Field label="সামগ্রীর নাম">
-              <input value={newItem.nameBn} onChange={(e) => setNewItem((p) => ({ ...p, nameBn: e.target.value }))}
-                placeholder="যেমন: বিশুদ্ধ পানি" className="input-base" />
-            </Field>
             <Field label="ক্যাটাগরি">
               <select value={newItem.category} onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value as InventoryCategory }))} className="input-base bg-white">
                 {Object.entries(categoryConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -184,16 +172,14 @@ export default function InventoryManagement() {
               <Field label="পরিমাণ">
                 <input type="number" min={1} value={newItem.quantity || ""} onChange={(e) => setNewItem((p) => ({ ...p, quantity: Number(e.target.value) }))} placeholder="500" className="input-base" />
               </Field>
-              <Field label="ইউনিট">
-                <input value={newItem.unit} onChange={(e) => setNewItem((p) => ({ ...p, unit: e.target.value }))} placeholder="বোতল, কেজি..." className="input-base" />
-              </Field>
+              <Field label="সামগ্রী"><select value={newItem.resourceId} onChange={(e) => setNewItem((p) => ({ ...p, resourceId: Number(e.target.value) }))} className="input-base bg-white"><option value={0}>নির্বাচন করুন</option>{resources.filter((resource) => resource.category === newItem.category).map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></Field>
             </div>
             <Field label="মজুত কেন্দ্র">
               <input value={newItem.depot} onChange={(e) => setNewItem((p) => ({ ...p, depot: e.target.value }))} placeholder="কেন্দ্রের নাম" className="input-base" />
             </Field>
           </div>
           <div className="flex gap-3">
-            <Button onClick={handleAdd} loading={loading} disabled={!newItem.nameBn.trim() || !newItem.unit.trim() || newItem.quantity <= 0} className="flex-1">মজুতে যোগ করুন</Button>
+            <Button onClick={handleAdd} loading={loading} disabled={!newItem.quantity || newItem.quantity <= 0} className="flex-1">মজুতে যোগ করুন</Button>
             <Button variant="outline" onClick={() => setAddModal(false)} disabled={loading}>বাতিল</Button>
           </div>
         </ModalWrap>
@@ -205,10 +191,10 @@ export default function InventoryManagement() {
           <h3 className="text-lg font-bold text-[#17221D] mb-1">
             {adjustItem.type === "add" ? "মজুত যোগ করুন" : "মজুত কমান"}
           </h3>
-          <p className="text-sm text-[#66736D] mb-4">{adjustItem.item.nameBn}</p>
+          <p className="text-sm text-[#66736D] mb-4">{adjustItem.item.resource_name}</p>
           <div className="space-y-4 mb-5">
             <Field label="পরিমাণ">
-              <input type="number" min={1} max={adjustItem.type === "reduce" ? adjustItem.item.available : undefined} value={adjustQty || ""} onChange={(e) => setAdjustQty(Number(e.target.value))}
+              <input type="number" min={1} max={adjustItem.type === "reduce" ? adjustItem.item.quantity : undefined} value={adjustQty || ""} onChange={(e) => setAdjustQty(Number(e.target.value))}
                 placeholder="পরিমাণ লিখুন" className="input-base" />
             </Field>
             {adjustItem.type === "reduce" && (

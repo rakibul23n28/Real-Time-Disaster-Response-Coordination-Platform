@@ -43,6 +43,13 @@ export async function updateReportStatus(req: AuthRequest, res: Response, next: 
   } catch (err) { next(err); }
 }
 
+export async function requestInfo(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    await reportService.requestInfo(Number(req.params.id), req.body.message);
+    ok(res, null, "Information request sent");
+  } catch (err) { next(err); }
+}
+
 export async function deleteReport(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     await reportService.deleteReport(Number(req.params.id), req.user!.userId, req.user!.role === "admin");

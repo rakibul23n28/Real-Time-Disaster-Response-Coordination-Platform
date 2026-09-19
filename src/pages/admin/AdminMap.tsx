@@ -4,10 +4,9 @@ import L from "leaflet";
 import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
 import PriorityBadge from "../../components/common/PriorityBadge";
-import { mockIncidents } from "../../data/mockIncidents";
-import { useAppState } from "../../hooks/useAppState";
+import { useAdminData } from "../../hooks/useAdminData";
 
-const severityColor: Record<string, string> = { high: "#DC2626", medium: "#F59E0B", low: "#16A34A" };
+const severityColor: Record<string, string> = { critical: "#991B1B", high: "#DC2626", medium: "#F59E0B", low: "#16A34A", unassessed: "#64748B" };
 
 const greenIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
@@ -57,11 +56,11 @@ const reliefCamps = [
 ];
 
 export default function AdminMap() {
-  const { tasks, reports } = useAppState();
+  const { tasks, reports, incidents } = useAdminData();
   const [activeLayers, setActiveLayers] = useState<Set<LayerKey>>(new Set(["disasters", "tasks"]));
   const [severityFilter, setSeverityFilter] = useState("all");
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
-  const [selectedInc, setSelectedInc] = useState<typeof mockIncidents[0] | null>(null);
+  const [selectedInc, setSelectedInc] = useState<typeof incidents[0] | null>(null);
 
   const toggleLayer = (key: LayerKey) => {
     setActiveLayers((prev) => {
@@ -72,7 +71,7 @@ export default function AdminMap() {
     });
   };
 
-  const visibleIncidents = mockIncidents.filter((i) => severityFilter === "all" || i.severity === severityFilter);
+  const visibleIncidents = incidents.filter((i) => severityFilter === "all" || i.severity === severityFilter);
   const activeTasks = tasks.filter((t) => t.status !== "completed");
   const pendingReports = reports.filter((r) => r.status === "pending");
 
@@ -137,10 +136,10 @@ export default function AdminMap() {
 
               {/* Active tasks */}
               {activeLayers.has("tasks") && activeTasks.map((task) => (
-                <Marker key={task.id} position={[task.location.lat, task.location.lng]} icon={greenIcon}>
+                <Marker key={task.id} position={[Number(task.loc_lat ?? 23.685), Number(task.loc_lng ?? 90.356)]} icon={greenIcon}>
                   <Popup>
                     <p className="font-bold text-sm">{task.title}</p>
-                    <p className="text-xs text-gray-500">{task.location.name}</p>
+                    <p className="text-xs text-gray-500">{task.location_name ?? "অজানা স্থান"}</p>
                     <p className="text-xs text-green-600 font-medium">{task.status}</p>
                   </Popup>
                 </Marker>
@@ -194,7 +193,7 @@ export default function AdminMap() {
 
           <h3 className="font-semibold text-[#17221D] text-sm">সব ঘটনা</h3>
           <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
-            {mockIncidents.map((inc) => (
+              {incidents.map((inc) => (
               <button key={inc.id} onClick={() => { setSelectedInc(inc); setFlyTo({ lat: inc.lat, lng: inc.lng }); }}
                 className={`w-full text-left p-3 bg-white rounded-xl border transition-all ${selectedInc?.id === inc.id ? "border-[#2E7D5B]" : "border-[#DCE6E0] hover:border-[#b0c4b8]"}`}>
                 <div className="flex items-center justify-between gap-2 mb-1">
@@ -204,8 +203,8 @@ export default function AdminMap() {
                 <p className="text-xs text-[#66736D]">{inc.disasterType} · {inc.affectedPeople.toLocaleString()} জন</p>
               </button>
             ))}
-            {activeTasks.map((task) => (
-              <button key={task.id} onClick={() => setFlyTo({ lat: task.location.lat, lng: task.location.lng })}
+              {activeTasks.map((task) => (
+              <button key={task.id} onClick={() => setFlyTo({ lat: Number(task.loc_lat ?? 23.685), lng: Number(task.loc_lng ?? 90.356) })}
                 className="w-full text-left p-3 bg-[#E8F5E9] rounded-xl border border-[#b8ddc5] hover:border-[#2E7D5B] transition-colors">
                 <p className="text-xs font-mono text-[#2E7D5B] mb-0.5">{task.id}</p>
                 <p className="text-sm font-semibold text-[#17221D]">{task.title}</p>

@@ -2,11 +2,12 @@ import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
-import { useAppState } from "../../hooks/useAppState";
+import { useAdminData } from "../../hooks/useAdminData";
 import { useToast } from "../../components/common/Toast";
 import Button from "../../components/common/Button";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
+import { apiClient } from "../../lib/api";
 
 const disasterTypeBn: Record<string, string> = {
   flood: "বন্যা", cyclone: "ঘূর্ণিঝড়", river_erosion: "নদীভাঙন",
@@ -31,7 +32,7 @@ type ModalType = "verify" | "reject" | "info" | null;
 
 export default function AdminReportDetail() {
   const { id } = useParams();
-  const { reports, updateReportStatus, addNotification } = useAppState();
+  const { reports, updateReportStatus } = useAdminData();
   const { showToast } = useToast();
 
   const [modal, setModal] = useState<ModalType>(null);
@@ -41,7 +42,7 @@ export default function AdminReportDetail() {
   const [infoMsg, setInfoMsg] = useState("");
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
-  const report = reports.find((r) => r.id === id);
+  const report = reports.find((r) => r.id === Number(id));
 
   if (!report) {
     return (
@@ -53,31 +54,35 @@ export default function AdminReportDetail() {
 
   const handleVerify = async () => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    updateReportStatus(report.id, "verified");
-    setLoading(false);
-    setModal(null);
-    showToast("✓ রিপোর্ট সফলভাবে যাচাই করা হয়েছে", "success");
+    try {
+      await updateReportStatus(report.id, "verified");
+      setModal(null);
+      showToast("✓ রিপোর্ট সফলভাবে যাচাই করা হয়েছে", "success");
+    } catch (err) { showToast(err instanceof Error ? err.message : "রিপোর্ট যাচাই করা যায়নি", "error"); }
+    finally { setLoading(false); }
   };
 
   const handleReject = async () => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    updateReportStatus(report.id, "rejected");
-    setLoading(false);
-    setModal(null);
-    showToast("রিপোর্ট বাতিল করা হয়েছে।", "info");
+    try {
+      await updateReportStatus(report.id, "rejected");
+      setModal(null);
+      showToast("রিপোর্ট বাতিল করা হয়েছে।", "info");
+    } catch (err) { showToast(err instanceof Error ? err.message : "রিপোর্ট বাতিল করা যায়নি", "error"); }
+    finally { setLoading(false); }
   };
 
   const handleInfoRequest = async () => {
     if (!infoMsg.trim()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    addNotification(`রিপোর্ট ${report.id} সম্পর্কে প্রশাসন আরও তথ্য চেয়েছেন।`, "report");
-    setLoading(false);
-    setModal(null);
-    setInfoMsg("");
-    showToast("রিপোর্টকারীকে বার্তা পাঠানো হয়েছে।", "success");
+    setLoading(true);
+    try {
+      await apiClient.requestReportInfo(report.id, infoMsg);
+      setModal(null);
+      setInfoMsg("");
+      showToast("রিপোর্টকারীকে বার্তা পাঠানো হয়েছে।", "success");
+    } catch (err) { showToast(err instanceof Error ? err.message : "বার্তা পাঠানো যায়নি", "error"); }
+    finally { setLoading(false); }
   };
 
   const demoPhotos = [

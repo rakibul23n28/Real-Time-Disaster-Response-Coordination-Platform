@@ -1,4 +1,6 @@
-export type InventoryCategory = "food" | "water" | "medical" | "other";
+import type { InventoryCategory } from "./inventoryTypes";
+
+export { categoryConfig, stockStatusConfig, type InventoryCategory } from "./inventoryTypes";
 export type StockStatus = "adequate" | "low" | "critical";
 
 export interface InventoryItem {
@@ -12,19 +14,6 @@ export interface InventoryItem {
   depot: string;
   status: StockStatus;
 }
-
-export const categoryConfig: Record<InventoryCategory, { label: string; icon: string }> = {
-  food: { label: "খাদ্য", icon: "🍚" },
-  water: { label: "পানি", icon: "💧" },
-  medical: { label: "চিকিৎসা", icon: "💊" },
-  other: { label: "অন্যান্য", icon: "📦" },
-};
-
-export const stockStatusConfig: Record<StockStatus, { label: string; color: string }> = {
-  adequate: { label: "পর্যাপ্ত", color: "text-green-700 bg-green-50 border-green-200" },
-  low: { label: "কম", color: "text-amber-700 bg-amber-50 border-amber-200" },
-  critical: { label: "জরুরি", color: "text-red-700 bg-red-50 border-red-200" },
-};
 
 export const mockInventory: InventoryItem[] = [
   { id: "INV-001", nameBn: "বিশুদ্ধ পানি", category: "water", total: 1500, available: 720, allocated: 780, unit: "বোতল", depot: "সুনামগঞ্জ ত্রাণকেন্দ্র", status: "adequate" },

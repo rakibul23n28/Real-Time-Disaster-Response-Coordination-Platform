@@ -2,8 +2,7 @@ import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { useAuth } from "../../hooks/useAuth";
-import { useAppState } from "../../hooks/useAppState";
-import { mockIncidents } from "../../data/mockIncidents";
+import { useAdminData } from "../../hooks/useAdminData";
 import Button from "../../components/common/Button";
 import StatusBadge from "../../components/common/StatusBadge";
 
@@ -31,13 +30,13 @@ const QuickActionCard = ({
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const { reports, tasks, issues, inventory } = useAppState();
+  const { reports, tasks, issues, incidents, inventory } = useAdminData();
 
   const pending = reports.filter((r) => r.status === "pending").length;
-  const highSeverity = mockIncidents.filter((i) => i.severity === "high");
+  const highSeverity = incidents.filter((i) => i.severity === "high");
   const activeTasks = tasks.filter((t) => t.status !== "completed").length;
-  const criticalInventory = inventory.filter((i) => i.status === "critical").length;
-  const pendingRequests = 5;
+  const criticalInventory = inventory.filter((i) => i.quantity < 100).length;
+  const pendingRequests = 0;
 
   // Critical alert
   const criticalReport = reports.find((r) => r.severity === "high" && r.status === "pending");
@@ -77,7 +76,7 @@ export default function AdminDashboard() {
       {/* Emergency stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "সক্রিয় দুর্যোগ", value: mockIncidents.length, sub: "Active disasters", color: "text-red-600", bg: "bg-red-50", dot: "bg-red-500 animate-pulse" },
+          { label: "সক্রিয় দুর্যোগ", value: incidents.length, sub: "Active disasters", color: "text-red-600", bg: "bg-red-50", dot: "bg-red-500 animate-pulse" },
           { label: "উচ্চ ঝুঁকির এলাকা", value: highSeverity.length, sub: "High-risk zones", color: "text-amber-600", bg: "bg-amber-50", dot: "bg-amber-500" },
           { label: "যাচাইয়ের অপেক্ষায়", value: pending, sub: "Pending review", color: "text-[#2E7D5B]", bg: "bg-[#F4FBF6]", dot: "bg-[#2E7D5B]" },
           { label: "চলমান কার্যক্রম", value: activeTasks, sub: "Active operations", color: "text-blue-600", bg: "bg-blue-50", dot: "bg-blue-500" },
@@ -179,7 +178,7 @@ export default function AdminDashboard() {
         <div style={{ height: "280px" }}>
           <MapContainer center={[23.685, 90.356]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} zoomControl={false}>
             <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {mockIncidents.map((inc) => (
+            {incidents.map((inc) => (
               <CircleMarker
                 key={inc.id}
                 center={[inc.lat, inc.lng]}
@@ -249,25 +248,25 @@ export default function AdminDashboard() {
           </div>
           <div className="divide-y divide-[#DCE6E0]">
             {inventory.slice(0, 5).map((item) => {
-              const pct = Math.round((item.available / item.total) * 100);
+              const pct = item.quantity > 0 ? 100 : 0;
               return (
                 <div key={item.id} className="px-5 py-3">
                   <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-sm font-medium text-[#17221D]">{item.nameBn}</p>
+                    <p className="text-sm font-medium text-[#17221D]">{item.resource_name}</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#17221D]">{item.available.toLocaleString()}</span>
+                      <span className="text-xs font-bold text-[#17221D]">{item.quantity.toLocaleString()}</span>
                       <span className="text-[10px] text-[#66736D]">{item.unit}</span>
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
-                        item.status === "adequate" ? "bg-green-50 text-green-700 border-green-200" :
-                        item.status === "low" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        item.quantity >= 300 ? "bg-green-50 text-green-700 border-green-200" :
+                        item.quantity >= 100 ? "bg-amber-50 text-amber-700 border-amber-200" :
                         "bg-red-50 text-red-700 border-red-200"
                       }`}>
-                        {item.status === "adequate" ? "পর্যাপ্ত" : item.status === "low" ? "কম" : "জরুরি"}
+                        {item.quantity >= 300 ? "পর্যাপ্ত" : item.quantity >= 100 ? "কম" : "জরুরি"}
                       </span>
                     </div>
                   </div>
                   <div className="w-full h-1.5 bg-[#F4FBF6] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${item.status === "adequate" ? "bg-[#2E7D5B]" : item.status === "low" ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full transition-all ${item.quantity >= 300 ? "bg-[#2E7D5B]" : item.quantity >= 100 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${pct}%` }} />
                   </div>
                   <p className="text-[10px] text-[#66736D] mt-0.5">{pct}% উপলব্ধ</p>
                 </div>
@@ -305,7 +304,7 @@ export default function AdminDashboard() {
                     <span className="text-xs font-mono text-[#2E7D5B]">{task.id}</span>
                     <p className="text-sm font-semibold text-[#17221D] truncate">{task.title}</p>
                   </div>
-                  <p className="text-xs text-[#66736D]">📍 {task.location.name} · {task.assignedVolunteers.length} জন স্বেচ্ছাসেবক</p>
+                  <p className="text-xs text-[#66736D]">📍 {task.location_name ?? "অজানা স্থান"} · {task.assignments?.length ?? 0} জন স্বেচ্ছাসেবক</p>
                 </div>
                 <StatusBadge status={task.status} size="sm" />
               </div>
