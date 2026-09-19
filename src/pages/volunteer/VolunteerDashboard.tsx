@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { useAppState } from "../../hooks/useAppState";
+import { useVolunteerData } from "../../hooks/useVolunteerData";
 import StatCard from "../../components/common/StatCard";
 import PriorityBadge from "../../components/common/PriorityBadge";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -9,7 +9,7 @@ import Button from "../../components/common/Button";
 
 export default function VolunteerDashboard() {
   const { user } = useAuth();
-  const { tasks, issues } = useAppState();
+  const { tasks, issues } = useVolunteerData();
 
   const myTasks = tasks;
   const active = myTasks.filter((t) => t.status !== "completed");

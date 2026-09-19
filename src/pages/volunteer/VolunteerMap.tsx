@@ -4,10 +4,10 @@ import L from "leaflet";
 import PageHeader from "../../components/common/PageHeader";
 import PriorityBadge from "../../components/common/PriorityBadge";
 import StatusBadge from "../../components/common/StatusBadge";
-import { mockIncidents } from "../../data/mockIncidents";
-import { useAppState } from "../../hooks/useAppState";
+import { useVolunteerData } from "../../hooks/useVolunteerData";
+import { apiClient, type Incident } from "../../lib/api";
 
-const severityColor = { high: "#DC2626", medium: "#F59E0B", low: "#16A34A" };
+const severityColor: Record<string, string> = { critical: "#991B1B", high: "#DC2626", medium: "#F59E0B", low: "#16A34A", unassessed: "#64748B" };
 
 const greenIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
@@ -25,16 +25,21 @@ type FilterType = "all" | "disaster" | "tasks" | "camps" | "volunteers";
 type SeverityFilter = "all" | "high" | "medium" | "low";
 
 export default function VolunteerMap() {
-  const { tasks } = useAppState();
+  const { tasks } = useVolunteerData();
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
 
-  const activeIncidents = mockIncidents.filter((i) =>
+  useEffect(() => {
+    void apiClient.getIncidents().then(setIncidents).catch(() => setIncidents([]));
+  }, []);
+
+  const activeIncidents = incidents.filter((i) =>
     severityFilter === "all" || i.severity === severityFilter
   );
 
-  const panelItems = mockIncidents.map((i) => ({
+  const panelItems = incidents.map((i) => ({
     id: i.id,
     title: `${i.location} ${i.disasterType}`,
     sub: `${i.affectedPeople.toLocaleString()} জন আক্রান্ত`,

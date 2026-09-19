@@ -26,6 +26,7 @@ interface User {
   phone?: string;
   role: string;
   profile_image?: string;
+  is_available?: boolean;
   created_at?: string;
 }
 
@@ -33,6 +34,7 @@ export interface UpdateUserInput {
   name: string;
   email: string;
   phone?: string;
+  is_available?: boolean;
 }
 
 export interface Incident {
@@ -69,6 +71,58 @@ export interface CreateReportInput {
   location: { name: string; district: string; lat: number; lng: number };
   affectedPeople: number;
   files?: File[];
+}
+
+export interface ApiTask {
+  id: number;
+  task_code: string;
+  report_id?: number | null;
+  title: string;
+  description: string;
+  instructions?: string | null;
+  priority: "critical" | "high" | "medium" | "low";
+  status: "assigned" | "en_route" | "in_progress" | "completed";
+  progress?: number;
+  location_name?: string | null;
+  district?: string | null;
+  loc_lat?: number | string | null;
+  loc_lng?: number | string | null;
+  assigned_at?: string;
+  assignments?: { volunteer_id: number; volunteer_name: string }[];
+}
+
+export interface ApiIssue {
+  id: number;
+  issue_code: string;
+  task_id?: number | null;
+  issue_type: "road_blocked" | "extra_relief" | "medical" | "boat_needed" | "more_volunteers" | "other";
+  description: string;
+  location_name?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  status: "reported" | "in_progress" | "resolved";
+  created_at: string;
+}
+
+export interface CreateIssueInput {
+  task_id?: number;
+  issue_type: ApiIssue["issue_type"];
+  description: string;
+  location_name?: string;
+  latitude?: number;
+  longitude?: number;
+  image?: File;
+}
+
+export interface ApiNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  reference_type?: string | null;
+  reference_id?: number | null;
+  is_read: number;
+  created_at: string;
 }
 
 // Transform backend snake_case data to frontend camelCase format
@@ -293,6 +347,87 @@ class ApiClient {
     });
     const data = await this.handleResponse<ApiResponse<{ url: string }>>(response);
     return data.data;
+  }
+
+  async getTasks(): Promise<ApiTask[]> {
+    const response = await fetch(`${API_BASE_URL}/tasks?limit=100`, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiTask[]>>(response);
+    return data.data;
+  }
+
+  async updateTaskStatus(id: number, status: ApiTask["status"]): Promise<ApiTask> {
+    const response = await fetch(`${API_BASE_URL}/tasks/${id}/status`, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiTask>>(response);
+    return data.data;
+  }
+
+  async getIssues(): Promise<ApiIssue[]> {
+    const response = await fetch(`${API_BASE_URL}/issues?limit=100`, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiIssue[]>>(response);
+    return data.data;
+  }
+
+  async createIssue(input: CreateIssueInput): Promise<ApiIssue> {
+    if (!input.image) {
+      const response = await fetch(`${API_BASE_URL}/issues`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          task_id: input.task_id,
+          issue_type: input.issue_type,
+          description: input.description,
+          location_name: input.location_name,
+          latitude: input.latitude,
+          longitude: input.longitude,
+        }),
+      });
+      const data = await this.handleResponse<ApiResponse<ApiIssue>>(response);
+      return data.data;
+    }
+
+    const formData = new FormData();
+    formData.append("issue_type", input.issue_type);
+    formData.append("description", input.description);
+    if (input.task_id !== undefined) formData.append("task_id", String(input.task_id));
+    if (input.location_name) formData.append("location_name", input.location_name);
+    if (input.latitude !== undefined) formData.append("latitude", String(input.latitude));
+    if (input.longitude !== undefined) formData.append("longitude", String(input.longitude));
+    if (input.image) formData.append("image", input.image);
+
+    const response = await fetch(`${API_BASE_URL}/issues`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.getToken() || ""}` },
+      body: formData,
+    });
+    const data = await this.handleResponse<ApiResponse<ApiIssue>>(response);
+    return data.data;
+  }
+
+  async getNotifications(): Promise<ApiNotification[]> {
+    const response = await fetch(`${API_BASE_URL}/notifications?limit=100`, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<ApiResponse<ApiNotification[]>>(response);
+    return data.data;
+  }
+
+  async markNotificationsRead(): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+    });
+    await this.handleResponse<ApiResponse<null>>(response);
   }
 }
 

@@ -3,29 +3,46 @@ import PageHeader from "../../components/common/PageHeader";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { useAuth } from "../../hooks/useAuth";
-import { useAppState } from "../../hooks/useAppState";
+import { useVolunteerData } from "../../hooks/useVolunteerData";
 import { useToast } from "../../components/common/Toast";
 
 export default function VolunteerProfile() {
-  const { user } = useAuth();
-  const { tasks } = useAppState();
+  const { user, updateUser } = useAuth();
+  const { tasks } = useVolunteerData();
   const { showToast } = useToast();
-  const [available, setAvailable] = useState(true);
+  const [available, setAvailable] = useState(user?.is_available ?? true);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [saving, setSaving] = useState(false);
 
   const done = tasks.filter((t) => t.status === "completed").length;
   const active = tasks.filter((t) => t.status !== "completed").length;
   const total = tasks.length;
 
-  const handleSave = () => {
-    showToast("প্রোফাইল সংরক্ষিত হয়েছে।");
-    setEditing(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateUser({ name, email, phone });
+      showToast("প্রোফাইল সংরক্ষিত হয়েছে।");
+      setEditing(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "প্রোফাইল সংরক্ষণ করা যায়নি।", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const toggleAvailability = () => {
-    setAvailable((p) => !p);
-    showToast(available ? "আপনি এখন অনুপলব্ধ হিসেবে চিহ্নিত।" : "আপনি এখন জরুরি কাজে উপলব্ধ।", available ? "info" : "success");
+  const toggleAvailability = async () => {
+    const next = !available;
+    try {
+      await updateUser({ name, email, phone, is_available: next });
+      setAvailable(next);
+      showToast(next ? "আপনি এখন জরুরি কাজে উপলব্ধ।" : "আপনি এখন অনুপলব্ধ হিসেবে চিহ্নিত।", next ? "success" : "info");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "উপলব্ধতার অবস্থা আপডেট করা যায়নি।", "error");
+    }
   };
 
   return (
@@ -78,21 +95,21 @@ export default function VolunteerProfile() {
             <h3 className="text-sm font-semibold text-[#17221D] mb-3">ব্যক্তিগত তথ্য</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               <Input label="নাম" value={name} onChange={(e) => setName(e.target.value)} disabled={!editing} />
-              <Input label="এলাকা" defaultValue={user?.district} disabled={!editing} />
+              <Input label="এলাকা" defaultValue="" disabled={!editing} />
             </div>
           </div>
           <div className="border-t border-[#DCE6E0] pt-4">
             <h3 className="text-sm font-semibold text-[#17221D] mb-3">যোগাযোগের তথ্য</h3>
             <div className="grid sm:grid-cols-2 gap-4">
-              <Input label="ইমেইল" type="email" defaultValue={user?.email} disabled={!editing} />
-              <Input label="মোবাইল নম্বর" defaultValue={user?.mobile} disabled={!editing} />
+              <Input label="ইমেইল" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!editing} />
+              <Input label="মোবাইল নম্বর" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!editing} />
             </div>
           </div>
 
           <div className="flex gap-3 pt-1">
             {editing ? (
               <>
-                <Button onClick={handleSave} className="flex-1">সংরক্ষণ করুন</Button>
+                  <Button onClick={handleSave} loading={saving} className="flex-1">সংরক্ষণ করুন</Button>
                 <Button onClick={() => setEditing(false)} variant="outline">বাতিল</Button>
               </>
             ) : (

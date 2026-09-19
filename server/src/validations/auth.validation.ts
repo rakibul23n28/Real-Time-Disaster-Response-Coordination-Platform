@@ -17,6 +17,7 @@ export const updateMeSchema = z.object({
   name: z.string().min(2).max(120),
   email: z.string().email(),
   phone: z.string().max(20).optional(),
+  is_available: z.boolean().optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

@@ -12,6 +12,7 @@ interface UserRow extends RowDataPacket {
   password_hash: string;
   role: string;
   profile_image: string | null;
+  is_available: boolean;
 }
 
 export async function register(input: RegisterInput) {
@@ -27,7 +28,7 @@ export async function register(input: RegisterInput) {
   );
 
   const [rows] = await pool.execute<UserRow[]>(
-    `SELECT id, name, email, phone, role, profile_image, created_at FROM users WHERE id = ?`,
+    `SELECT id, name, email, phone, role, profile_image, is_available, created_at FROM users WHERE id = ?`,
     [result.insertId]
   );
   const user = rows[0];
@@ -52,7 +53,7 @@ export async function login(input: LoginInput) {
 
 export async function getMe(userId: number) {
   const [rows] = await pool.execute<UserRow[]>(
-    `SELECT id, name, email, phone, role, profile_image, created_at FROM users WHERE id = ?`,
+    `SELECT id, name, email, phone, role, profile_image, is_available, created_at FROM users WHERE id = ?`,
     [userId]
   );
   if (!rows[0]) throw Object.assign(new Error("User not found"), { status: 404 });
@@ -66,8 +67,8 @@ export async function updateMe(userId: number, input: UpdateMeInput) {
   if (existing.length > 0) throw Object.assign(new Error("Email already registered"), { status: 409 });
 
   await pool.execute(
-    `UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?`,
-    [input.name, input.email, input.phone ?? null, userId]
+    `UPDATE users SET name = ?, email = ?, phone = ?, is_available = COALESCE(?, is_available) WHERE id = ?`,
+    [input.name, input.email, input.phone ?? null, input.is_available ?? null, userId]
   );
   return getMe(userId);
 }

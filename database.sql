@@ -19,6 +19,7 @@ CREATE TABLE users (
   phone         VARCHAR(20)             DEFAULT NULL,
   password_hash VARCHAR(255)    NOT NULL,
   role          ENUM('citizen','volunteer','admin') NOT NULL DEFAULT 'citizen',
+  is_available  BOOLEAN         NOT NULL DEFAULT TRUE,
   profile_image VARCHAR(500)            DEFAULT NULL,
   created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

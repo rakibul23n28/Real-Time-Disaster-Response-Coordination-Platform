@@ -5,7 +5,7 @@ import StatusBadge from "../../components/common/StatusBadge";
 import PriorityBadge from "../../components/common/PriorityBadge";
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
-import { useAppState } from "../../hooks/useAppState";
+import { useVolunteerData } from "../../hooks/useVolunteerData";
 
 const filters = [
   { key: "all", label: "সব" },
@@ -17,7 +17,7 @@ const filters = [
 ];
 
 export default function VolunteerTasks() {
-  const { tasks } = useAppState();
+  const { tasks } = useVolunteerData();
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
 

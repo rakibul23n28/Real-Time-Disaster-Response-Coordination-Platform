@@ -8,6 +8,7 @@ interface User {
   phone?: string;
   role: string;
   profile_image?: string;
+  is_available?: boolean;
   created_at?: string;
 }
 

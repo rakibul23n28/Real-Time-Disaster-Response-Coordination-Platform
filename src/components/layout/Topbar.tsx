@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useAppState } from "../../hooks/useAppState";
+import { apiClient, type ApiNotification } from "../../lib/api";
 
 const roleLabels: Record<string, string> = {
   citizen: "নাগরিক",
@@ -16,14 +17,42 @@ interface TopbarProps {
 
 export default function Topbar({ title, onMenuClick }: TopbarProps) {
   const { user, logout } = useAuth();
-  const { notifications, markNotificationsRead } = useAppState();
+  const { notifications: demoNotifications, markNotificationsRead: markDemoNotificationsRead } = useAppState();
+  const [volunteerNotifications, setVolunteerNotifications] = useState<ApiNotification[]>([]);
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (user?.role !== "volunteer") return;
+    void apiClient.getNotifications().then(setVolunteerNotifications).catch(() => setVolunteerNotifications([]));
+  }, [user?.role]);
+
+  const notifications = user?.role === "volunteer"
+    ? volunteerNotifications.map((notification) => ({
+      id: String(notification.id),
+      message: notification.message,
+      time: new Date(notification.created_at).toLocaleString("bn-BD"),
+      read: Boolean(notification.is_read),
+      type: notification.type,
+      link: notification.reference_type && notification.reference_id
+        ? `/${notification.reference_type === "task" ? "volunteer/tasks" : "volunteer/issues"}/${notification.reference_id}`
+        : undefined,
+    }))
+    : demoNotifications;
+
   const unread = notifications.filter((n) => !n.read).length;
+
+  const handleMarkNotificationsRead = async () => {
+    if (user?.role === "volunteer") {
+      await apiClient.markNotificationsRead();
+      setVolunteerNotifications((current) => current.map((notification) => ({ ...notification, is_read: 1 })));
+      return;
+    }
+    markDemoNotificationsRead();
+  };
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -95,7 +124,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
               <div className="px-4 py-3 border-b border-[#DCE6E0] flex items-center justify-between">
                 <span className="font-semibold text-sm text-[#17221D]">নোটিফিকেশন</span>
                 {unread > 0 && (
-                  <button onClick={markNotificationsRead} className="text-xs text-[#2E7D5B] font-medium hover:underline">
+                  <button onClick={() => void handleMarkNotificationsRead()} className="text-xs text-[#2E7D5B] font-medium hover:underline">
                     {unread}টি নতুন · সব পড়া হয়েছে
                   </button>
                 )}

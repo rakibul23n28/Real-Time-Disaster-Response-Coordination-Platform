@@ -1,27 +1,6 @@
-export type TaskStatus = "assigned" | "en_route" | "in_progress" | "completed";
-export type TaskPriority = "critical" | "high" | "medium" | "low";
+import type { Task } from "./taskTypes";
 
-export interface TaskResource {
-  name: string;
-  quantity: number;
-  unit: string;
-}
-
-export interface Task {
-  id: string;
-  reportId: string;
-  title: string;
-  description: string;
-  instructions: string;
-  location: { name: string; district: string; lat: number; lng: number };
-  priority: TaskPriority;
-  status: TaskStatus;
-  assignedTo: string;
-  assignedVolunteers: string[];
-  assignedAt: string;
-  resources: TaskResource[];
-  affectedPeople: number;
-}
+export { type Task, type TaskPriority, type TaskResource, type TaskStatus } from "./taskTypes";
 
 export const mockTasks: Task[] = [
   {

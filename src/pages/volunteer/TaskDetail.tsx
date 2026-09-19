@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { useAppState } from "../../hooks/useAppState";
+import { useVolunteerData } from "../../hooks/useVolunteerData";
 import { useToast } from "../../components/common/Toast";
 import StatusBadge from "../../components/common/StatusBadge";
 import PriorityBadge from "../../components/common/PriorityBadge";
@@ -8,7 +8,7 @@ import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import SingleMarkerMap from "../../components/maps/SingleMarkerMap";
 import EmptyState from "../../components/common/EmptyState";
-import { type TaskStatus } from "../../data/mockTasks";
+import { type TaskStatus } from "../../data/taskTypes";
 
 const DEMO_VOLUNTEER_LOC = { lat: 24.83, lng: 91.37, label: "আপনার অবস্থান" };
 
@@ -24,7 +24,7 @@ const statusLabels: Record<TaskStatus, string> = { assigned: "নতুন", en_
 
 export default function TaskDetail() {
   const { id } = useParams();
-  const { tasks, updateTaskStatus } = useAppState();
+  const { tasks, updateTaskStatus } = useVolunteerData();
   const { showToast } = useToast();
   const [confirm, setConfirm] = useState<{ open: boolean; action: typeof nextActions[TaskStatus] }>({ open: false, action: null });
   const [updating, setUpdating] = useState(false);
@@ -45,8 +45,7 @@ export default function TaskDetail() {
   const handleUpdate = async () => {
     if (!confirm.action) return;
     setUpdating(true);
-    await new Promise((r) => setTimeout(r, 700));
-    updateTaskStatus(task.id, confirm.action.next);
+    await updateTaskStatus(task, confirm.action.next);
     setUpdating(false);
     setConfirm({ open: false, action: null });
     showToast("কাজের অবস্থা সফলভাবে আপডেট হয়েছে।");

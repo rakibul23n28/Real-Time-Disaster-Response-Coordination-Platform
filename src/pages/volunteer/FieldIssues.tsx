@@ -1,9 +1,9 @@
 import { useState } from "react";
 import PageHeader from "../../components/common/PageHeader";
 import Button from "../../components/common/Button";
-import { useAppState } from "../../hooks/useAppState";
+import { useVolunteerData } from "../../hooks/useVolunteerData";
 import { useToast } from "../../components/common/Toast";
-import { issueTypeConfig, type IssueType, type FieldIssue } from "../../data/mockIssues";
+import { issueTypeConfig, type IssueType, type FieldIssue } from "../../data/issueTypes";
 
 const issueList = Object.entries(issueTypeConfig) as [IssueType, { label: string; icon: string }][];
 
@@ -19,7 +19,7 @@ const statusColor: Record<string, string> = {
 };
 
 export default function FieldIssues() {
-  const { issues, addIssue } = useAppState();
+  const { issues, addIssue } = useVolunteerData();
   const { showToast } = useToast();
 
   const [selectedType, setSelectedType] = useState<IssueType | null>(null);
@@ -35,25 +35,21 @@ export default function FieldIssues() {
     if (!locationName.trim()) { setError("অবস্থানের নাম লিখুন।"); return; }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-
     const cfg = issueTypeConfig[selectedType];
-    const newIssue: FieldIssue = {
-      id: `ISSUE-${String(issues.length + 1).padStart(3, "0")}`,
-      taskId: "TASK-001",
-      type: selectedType,
-      label: cfg.label,
-      icon: cfg.icon,
-      location: { name: locationName, lat: 24.8917, lng: 91.3967 },
-      description,
-      status: "reported",
-      createdAt: new Date().toISOString(),
-      displayTime: "এইমাত্র",
-    };
-
-    addIssue(newIssue);
-    setLoading(false);
-    setSuccess(newIssue);
+    try {
+      const newIssue = await addIssue({
+        issue_type: selectedType,
+        description: description || `${cfg.label}: ${locationName}`,
+        location_name: locationName,
+        latitude: 24.8917,
+        longitude: 91.3967,
+      });
+      setSuccess(newIssue);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "সমস্যাটি জানানো যায়নি।");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
