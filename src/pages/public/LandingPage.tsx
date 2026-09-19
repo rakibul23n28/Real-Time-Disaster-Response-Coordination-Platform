@@ -2,15 +2,23 @@ import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import Logo from "../../components/common/Logo";
 import DisasterMap from "../../components/maps/DisasterMap";
+import { apiClient, type Incident, type LandingStats } from "../../lib/api";
 
-const stats = [
-  { value: 1248, label: "মোট রিপোর্ট", sub: "Total Reports" },
-  { value: 364, label: "যাচাইকৃত ঘটনা", sub: "Verified Incidents" },
-  { value: 187, label: "সক্রিয় স্বেচ্ছাসেবক", sub: "Active Volunteers" },
-  { value: 56, label: "সক্রিয় দুর্যোগ এলাকা", sub: "Active Disaster Zones" },
-];
+const statLabels = [
+  { key: "totalReports", label: "মোট রিপোর্ট", sub: "Total Reports" },
+  { key: "verifiedIncidents", label: "যাচাইকৃত ঘটনা", sub: "Verified Incidents" },
+  { key: "activeVolunteers", label: "সক্রিয় স্বেচ্ছাসেবক", sub: "Active Volunteers" },
+  { key: "activeZones", label: "সক্রিয় দুর্যোগ এলাকা", sub: "Active Disaster Zones" },
+] as const;
 
-function useCountUp(target: number, duration = 1800, start = false) {
+const emptyStats: LandingStats = {
+  totalReports: 0,
+  verifiedIncidents: 0,
+  activeVolunteers: 0,
+  activeZones: 0,
+};
+
+function useCountUp(target: number, duration = 1800, start = false): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!start) return;
@@ -103,9 +111,18 @@ const footerLinks = {
 };
 
 export default function LandingPage() {
+  const [landingStats, setLandingStats] = useState<LandingStats>(emptyStats);
+  const [landingIncidents, setLandingIncidents] = useState<Incident[]>([]);
   const [statsVisible, setStatsVisible] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
   const [mobileNav, setMobileNav] = useState(false);
+
+  useEffect(() => {
+    apiClient.getPublicLandingData().then(({ stats, incidents }) => {
+      setLandingStats(stats);
+      setLandingIncidents(incidents);
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -240,7 +257,7 @@ export default function LandingPage() {
             </div>
 
             <div className="space-y-3">
-              <DisasterMap height="360px" />
+              <DisasterMap height="360px" incidents={landingIncidents} />
               <div className="flex items-center gap-4 justify-center">
                 <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
                   <span className="size-3 rounded-full bg-[#DC2626]" /> উচ্চ ঝুঁকি
@@ -261,8 +278,8 @@ export default function LandingPage() {
       <section className="bg-white border-b border-[#DCE6E0]" ref={statsRef}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((s) => (
-              <StatItem key={s.label} value={s.value} label={s.label} sub={s.sub} animate={statsVisible} />
+            {statLabels.map((stat) => (
+              <StatItem key={stat.label} value={landingStats[stat.key]} label={stat.label} sub={stat.sub} animate={statsVisible} />
             ))}
           </div>
         </div>
@@ -364,7 +381,7 @@ export default function LandingPage() {
             <h2 className="text-2xl sm:text-3xl font-bold text-[#17221D]">বর্তমান দুর্যোগ পরিস্থিতি</h2>
             <p className="text-[#66736D] mt-2 text-sm">Current Disaster Situation — Live Demo Map</p>
           </div>
-          <DisasterMap height="420px" />
+          <DisasterMap height="420px" incidents={landingIncidents} />
           <div className="flex items-center gap-6 justify-center mt-4 flex-wrap">
             <span className="flex items-center gap-2 text-sm text-[#66736D]">
               <span className="size-3.5 rounded-full bg-[#DC2626]" /> উচ্চ ঝুঁকি

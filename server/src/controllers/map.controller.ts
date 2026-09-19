@@ -16,6 +16,23 @@ export async function getIncidents(req: AuthRequest, res: Response, next: NextFu
   } catch (err) { next(err); }
 }
 
+export async function getPublicIncidents(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT r.id, r.report_code AS code, r.latitude, r.longitude, r.severity, r.status,
+              r.location_name AS locationName, r.disaster_type AS disasterType,
+              r.affected_people, COUNT(DISTINCT ta.volunteer_id) AS activeVolunteers
+       FROM reports r
+       LEFT JOIN tasks t ON t.report_id = r.id AND t.status != 'completed'
+       LEFT JOIN task_assignments ta ON ta.task_id = t.id
+       WHERE r.status != 'rejected' AND r.latitude IS NOT NULL
+       GROUP BY r.id, r.report_code, r.latitude, r.longitude, r.severity, r.status,
+                r.location_name, r.disaster_type, r.affected_people`
+    );
+    ok(res, rows);
+  } catch (err) { next(err); }
+}
+
 export async function getTaskLocations(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const [rows] = await pool.execute<RowDataPacket[]>(

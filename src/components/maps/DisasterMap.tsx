@@ -1,5 +1,17 @@
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import { mockIncidents } from "../../data/mockIncidents";
+import { useEffect, useState } from "react";
+import { apiClient, type Incident } from "../../lib/api";
+
+type MapIncident = {
+  id: string | number;
+  lat: number;
+  lng: number;
+  severity: string;
+  location: string;
+  disasterType: string;
+  affectedPeople: number;
+  activeVolunteers?: number;
+};
 
 const severityColor = {
   high: "#DC2626",
@@ -7,7 +19,16 @@ const severityColor = {
   low: "#16A34A",
 };
 
-export default function DisasterMap({ height = "400px" }: { height?: string }) {
+export default function DisasterMap({ height = "400px", incidents }: { height?: string; incidents?: MapIncident[] }) {
+  const [apiIncidents, setApiIncidents] = useState<Incident[]>([]);
+
+  useEffect(() => {
+    if (incidents) return;
+    apiClient.getPublicIncidents().then(setApiIncidents).catch(() => undefined);
+  }, [incidents]);
+
+  const visibleIncidents = incidents ?? apiIncidents;
+
   return (
     <div style={{ height }} className="rounded-xl overflow-hidden border border-[#DCE6E0]">
       <MapContainer
@@ -21,14 +42,14 @@ export default function DisasterMap({ height = "400px" }: { height?: string }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {mockIncidents.map((incident) => (
+        {visibleIncidents.map((incident) => (
           <CircleMarker
             key={incident.id}
             center={[incident.lat, incident.lng]}
             radius={incident.severity === "high" ? 14 : incident.severity === "medium" ? 10 : 7}
             pathOptions={{
-              color: severityColor[incident.severity],
-              fillColor: severityColor[incident.severity],
+              color: severityColor[incident.severity as keyof typeof severityColor] || severityColor.low,
+              fillColor: severityColor[incident.severity as keyof typeof severityColor] || severityColor.low,
               fillOpacity: 0.6,
               weight: 2,
             }}
@@ -38,7 +59,7 @@ export default function DisasterMap({ height = "400px" }: { height?: string }) {
                 <p className="font-bold text-[#17221D] mb-1">{incident.location}</p>
                 <p className="text-[#66736D]">ঘটনার ধরন: {incident.disasterType}</p>
                 <p className="text-[#66736D]">ক্ষতিগ্রস্ত: {incident.affectedPeople.toLocaleString()} জন</p>
-                <p className="text-[#66736D]">স্বেচ্ছাসেবক: {incident.activeVolunteers} জন</p>
+                <p className="text-[#66736D]">স্বেচ্ছাসেবক: {incident.activeVolunteers ?? 0} জন</p>
               </div>
             </Popup>
           </CircleMarker>

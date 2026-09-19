@@ -60,11 +60,16 @@ export default function LoginPage() {
         <div className="relative z-10">
           <div className="mb-8">
             <div className="flex items-center gap-2.5 mb-3">
+
+              <Link to="/" className="flex items-center gap-2.5">
               <div className="size-9 rounded-lg bg-[#2E7D5B] flex items-center justify-center text-white font-bold">দ</div>
-              <div>
-                <p className="font-bold text-white">দুর্যোগ সাড়া</p>
-                <p className="text-[10px] text-[#66736D] uppercase tracking-wide">Disaster Response</p>
-              </div>
+                <div>
+                  <p className="font-bold text-white">
+                    দুর্যোগ সাড়া
+                  </p>
+                  <p className="text-[10px] text-[#66736D] uppercase tracking-wide">Disaster Response</p>
+                </div>
+              </Link> 
             </div>
           </div>
           <h2 className="text-3xl font-bold text-white mb-4 leading-tight">

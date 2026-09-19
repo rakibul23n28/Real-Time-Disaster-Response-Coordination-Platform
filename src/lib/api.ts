@@ -47,6 +47,14 @@ export interface Incident {
   location: string;
   disasterType: string;
   affectedPeople: number;
+  activeVolunteers?: number;
+}
+
+export interface LandingStats {
+  totalReports: number;
+  verifiedIncidents: number;
+  activeVolunteers: number;
+  activeZones: number;
 }
 
 export interface Report {
@@ -425,7 +433,50 @@ class ApiClient {
       location: incident.locationName || "",
       disasterType: incident.disasterType || "",
       affectedPeople: Number(incident.affected_people || 0),
+      activeVolunteers: Number(incident.activeVolunteers || 0),
     }));
+  }
+
+  async getPublicIncidents(): Promise<Incident[]> {
+    const response = await fetch(`${API_BASE_URL}/public/incidents`);
+    const data = await this.handleResponse<ApiResponse<any[]>>(response);
+    return data.data.map((incident) => ({
+      id: Number(incident.id),
+      code: incident.code,
+      lat: Number(incident.latitude),
+      lng: Number(incident.longitude),
+      severity: incident.severity || "unassessed",
+      status: incident.status,
+      location: incident.locationName || "",
+      disasterType: incident.disasterType || "",
+      affectedPeople: Number(incident.affected_people || 0),
+      activeVolunteers: Number(incident.activeVolunteers || 0),
+    }));
+  }
+
+  async getPublicLandingData(): Promise<{ stats: LandingStats; incidents: Incident[] }> {
+    const [summaryResponse, incidentsResponse] = await Promise.all([
+      fetch(`${API_BASE_URL}/public/landing`),
+      fetch(`${API_BASE_URL}/public/incidents`),
+    ]);
+    const summary = await this.handleResponse<ApiResponse<{ stats: LandingStats }>>(summaryResponse);
+    const incidents = await this.handleResponse<ApiResponse<any[]>>(incidentsResponse);
+
+    return {
+      stats: summary.data.stats,
+      incidents: incidents.data.map((incident) => ({
+        id: Number(incident.id),
+        code: incident.code,
+        lat: Number(incident.latitude),
+        lng: Number(incident.longitude),
+        severity: incident.severity || "unassessed",
+        status: incident.status,
+        location: incident.locationName || "",
+        disasterType: incident.disasterType || "",
+        affectedPeople: Number(incident.affected_people || 0),
+        activeVolunteers: Number(incident.activeVolunteers || 0),
+      })),
+    };
   }
 
   async getReportById(id: number): Promise<Report> {
