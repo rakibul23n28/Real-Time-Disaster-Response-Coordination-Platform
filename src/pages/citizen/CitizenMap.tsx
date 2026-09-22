@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
 import PageHeader from "../../components/common/PageHeader";
-import { apiClient, type Incident } from "../../lib/api";
+import { apiClient, type Incident, type VolunteerLocation } from "../../lib/api";
 
 const severityColor = { high: "#DC2626", critical: "#991B1B", medium: "#F59E0B", low: "#16A34A", unassessed: "#64748B" };
 const severityLabel = { high: "উচ্চ ঝুঁকি", critical: "গুরুতর ঝুঁকি", medium: "মাঝারি ঝুঁকি", low: "কম ঝুঁকি", unassessed: "মূল্যায়ন হয়নি" };
+
+const volunteerIcon = new L.DivIcon({
+  className: "volunteer-map-marker",
+  html: '<span style="display:flex;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;background:#2E7D5B;border:3px solid white;box-shadow:0 2px 8px #17221d66;color:white;font-size:14px">●</span>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
 
 function MapCenter({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
@@ -23,6 +31,7 @@ export default function CitizenMap() {
   const [selected, setSelected] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [volunteerLocations, setVolunteerLocations] = useState<VolunteerLocation[]>([]);
 
   useEffect(() => {
     apiClient.getIncidents()
@@ -32,6 +41,13 @@ export default function CitizenMap() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "ঘটনাসমূহ লোড করা যায়নি।"))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const load = () => { void apiClient.getPublicVolunteerLocations().then(setVolunteerLocations).catch(() => undefined); };
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => window.clearInterval(timer);
   }, []);
 
   return (
@@ -69,6 +85,9 @@ export default function CitizenMap() {
                   </Popup>
                 </CircleMarker>
               ))}
+              {volunteerLocations.map((volunteer) => <Marker key={`volunteer-${volunteer.volunteer_id}-${volunteer.task_id}`} position={[Number(volunteer.latitude), Number(volunteer.longitude)]} icon={volunteerIcon}>
+                <Popup><div className="font-['Noto_Sans_Bengali',sans-serif] text-sm"><p className="font-bold text-[#17221D]">স্বেচ্ছাসেবক: {volunteer.volunteer_name}</p><p className="text-[#66736D]">এলাকা: {volunteer.area_name ?? volunteer.district ?? "আক্রান্ত এলাকা"}</p><p className="text-xs text-[#66736D]">সর্বশেষ আপডেট: {new Date(volunteer.updated_at).toLocaleTimeString("bn-BD")}</p></div></Popup>
+              </Marker>)}
             </MapContainer>
           </div>
           <div className="flex items-center gap-5 mt-3 flex-wrap">
@@ -78,6 +97,7 @@ export default function CitizenMap() {
                 {severityLabel[s]}
               </span>
             ))}
+            <span className="flex items-center gap-2 text-sm text-[#66736D]"><span className="size-3.5 rounded-full border-2 border-[#2E7D5B] bg-[#8DCEA9]" /> লাইভ স্বেচ্ছাসেবক</span>
           </div>
         </div>
 

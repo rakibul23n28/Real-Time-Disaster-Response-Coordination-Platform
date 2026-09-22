@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -9,6 +9,7 @@ import { issueTypeConfig } from "../../data/issueTypes";
 import { useToast } from "../../components/common/Toast";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import { apiClient, type ApiVolunteer, type DonationLogEntry } from "../../lib/api";
 
 const defaultIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -47,6 +48,39 @@ export default function Operations() {
   const { tasks, issues, updateIssueStatus } = useAdminData();
   const { showToast } = useToast();
   const [selectedTask, setSelectedTask] = useState<typeof tasks[0] | null>(null);
+  const [pendingDonations, setPendingDonations] = useState<DonationLogEntry[]>([]);
+  const [confirmingDonation, setConfirmingDonation] = useState<number | null>(null);
+  const [volunteers, setVolunteers] = useState<ApiVolunteer[]>([]);
+  const [assignmentTaskId, setAssignmentTaskId] = useState(0);
+  const [assignmentVolunteerId, setAssignmentVolunteerId] = useState(0);
+  const [assigning, setAssigning] = useState(false);
+
+  useEffect(() => {
+    void apiClient.getPendingDonations().then(setPendingDonations).catch(() => setPendingDonations([]));
+    void apiClient.getVolunteers().then(setVolunteers).catch(() => setVolunteers([]));
+  }, []);
+
+  const assignVolunteer = async () => {
+    if (!assignmentTaskId || !assignmentVolunteerId) return;
+    setAssigning(true);
+    try {
+      await apiClient.assignTask(assignmentTaskId, assignmentVolunteerId);
+      showToast("নির্দিষ্ট দুর্যোগ এলাকার কাজে স্বেচ্ছাসেবক নিয়োগ হয়েছে।", "success");
+      setAssignmentTaskId(0); setAssignmentVolunteerId(0);
+    } catch (error) { showToast(error instanceof Error ? error.message : "স্বেচ্ছাসেবক নিয়োগ করা যায়নি।", "error"); }
+    finally { setAssigning(false); }
+  };
+
+  const confirmDonation = async (id: number) => {
+    setConfirmingDonation(id);
+    try {
+      await apiClient.confirmDonation(id);
+      setPendingDonations((current) => current.filter((donation) => donation.id !== id));
+      showToast("অনুদানটি নিশ্চিত হয়েছে এবং এখন public log-এ দেখা যাবে।", "success");
+    } catch {
+      showToast("অনুদানটি নিশ্চিত করা যায়নি।", "error");
+    } finally { setConfirmingDonation(null); }
+  };
 
   const activeCount = tasks.filter((t) => t.status !== "completed").length;
   const enRoute = tasks.filter((t) => t.status === "en_route").length;
@@ -57,6 +91,23 @@ export default function Operations() {
   return (
     <div className="max-w-6xl space-y-6">
       <PageHeader title="অপারেশন পর্যবেক্ষণ" subtitle="বর্তমান দুর্যোগ মোকাবিলার কার্যক্রম এক নজরে পর্যবেক্ষণ করুন।" />
+
+      <section className="rounded-xl border border-[#DCE6E0] bg-white overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#DCE6E0]">
+          <div><h2 className="font-semibold text-[#17221D]">অনুদান নিশ্চিতকরণ</h2><p className="text-xs text-[#66736D] mt-0.5">প্রাপ্ত অনুদান যাচাই করে public log-এ প্রকাশ করুন।</p></div>
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">অপেক্ষমাণ {pendingDonations.length}</span>
+        </div>
+        {pendingDonations.length === 0 ? <p className="px-5 py-6 text-sm text-[#66736D]">নিশ্চিত করার জন্য কোনো নতুন অনুদান নেই।</p> : <div className="divide-y divide-[#DCE6E0]">{pendingDonations.map((donation) => <div key={donation.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-[#17221D]">{donation.donor_name} · {donation.category === "food" ? "খাদ্য" : donation.category === "water" ? "পানি" : donation.category === "medical" ? "চিকিৎসা" : "অন্যান্য"}</p><p className="text-xs text-[#66736D]">{donation.donation_type === "money" ? `৳${Number(donation.amount).toLocaleString("bn-BD")}` : `${donation.item_name} · ${donation.quantity} ${donation.unit}`} · {donation.place_name}</p><p className="text-[11px] text-[#66736D]">জমা: {new Date(donation.created_at).toLocaleString("bn-BD")}</p></div><Button size="sm" onClick={() => void confirmDonation(donation.id)} disabled={confirmingDonation === donation.id}>{confirmingDonation === donation.id ? "নিশ্চিত করা হচ্ছে..." : "নিশ্চিত করুন"}</Button></div>)}</div>}
+      </section>
+
+      <section className="rounded-xl border border-[#DCE6E0] bg-white p-5">
+        <div className="mb-4"><h2 className="font-semibold text-[#17221D]">এলাকাভিত্তিক স্বেচ্ছাসেবক নিয়োগ</h2><p className="text-xs text-[#66736D] mt-0.5">দুর্যোগ এলাকার কাজ নির্বাচন করে একজন স্বেচ্ছাসেবককে পাঠান।</p></div>
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <label className="text-sm">কাজ ও এলাকা<select className="input-base mt-1" value={assignmentTaskId} onChange={(event) => setAssignmentTaskId(Number(event.target.value))}><option value={0}>কাজ নির্বাচন করুন</option>{tasks.filter((task) => task.status !== "completed").map((task) => <option key={task.id} value={task.id}>{task.task_code} · {task.title} · {task.location_name ?? "অজানা এলাকা"}</option>)}</select></label>
+          <label className="text-sm">স্বেচ্ছাসেবক<select className="input-base mt-1" value={assignmentVolunteerId} onChange={(event) => setAssignmentVolunteerId(Number(event.target.value))}><option value={0}>স্বেচ্ছাসেবক নির্বাচন করুন</option>{volunteers.map((volunteer) => <option key={volunteer.id} value={volunteer.id}>{volunteer.name}{volunteer.is_available ? " · উপলব্ধ" : " · বর্তমানে ব্যস্ত"}</option>)}</select></label>
+          <Button size="sm" onClick={() => void assignVolunteer()} disabled={!assignmentTaskId || !assignmentVolunteerId} loading={assigning}>নিয়োগ করুন</Button>
+        </div>
+      </section>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -179,11 +230,12 @@ export default function Operations() {
                           <span className="text-base">{issueTypeConfig[issue.issue_type].icon}</span>
                           <div>
                             <p className="text-xs font-semibold text-[#17221D]">{issueTypeConfig[issue.issue_type].label}</p>
-                            <p className="text-[10px] text-[#66736D]">📍 {issue.location_name ?? "অজানা স্থান"} · {new Date(issue.created_at).toLocaleString("bn-BD")}</p>
+                            <p className="text-[10px] text-[#66736D]">📍 {issue.location_name ?? issue.area_name ?? "অজানা স্থান"} · {issue.reporter_name ?? "স্বেচ্ছাসেবক"}</p>
                           </div>
                         </div>
                         <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${sc.color}`}>{sc.label}</span>
                       </div>
+                      <p className="text-[10px] text-[#66736D] mb-1">{issue.task_title ? `কাজ: ${issue.task_title}` : "এলাকাভিত্তিক সমস্যা"} · {new Date(issue.created_at).toLocaleString("bn-BD")}</p>
                       {issue.status === "reported" && (
                         <button
                           onClick={() => {

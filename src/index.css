@@ -79,3 +79,12 @@ a, button {
 }
 .input-base:hover { border-color: #b0c4b8; }
 .input-base:focus { border-color: #2E7D5B; outline: none; }
+
+@keyframes donation-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.donation-marquee:has(span:nth-child(2)) {
+  animation: donation-marquee 28s linear infinite;
+}

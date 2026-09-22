@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useAppState } from "../../hooks/useAppState";
 import { apiClient, type ApiNotification } from "../../lib/api";
@@ -9,6 +9,31 @@ const roleLabels: Record<string, string> = {
   volunteer: "স্বেচ্ছাসেবক",
   admin: "প্রশাসক",
 };
+
+function dashboardPath(role?: string): string {
+  return role === "admin" ? "/admin" : role === "volunteer" ? "/volunteer" : "/citizen";
+}
+
+function notificationPath(role: string | undefined, notification: ApiNotification): string {
+  const referenceId = notification.reference_id;
+  if (!notification.reference_type || !referenceId) return dashboardPath(role);
+  if (notification.reference_type === "report") {
+    return role === "admin" ? `/admin/reports/${referenceId}` : role === "citizen" ? `/citizen/reports/${referenceId}` : "/volunteer";
+  }
+  if (notification.reference_type === "task") {
+    return role === "volunteer" ? `/volunteer/tasks/${referenceId}` : "/admin/operations";
+  }
+  if (notification.reference_type === "issue") {
+    return role === "volunteer" ? "/volunteer/issues" : "/admin/operations";
+  }
+  if (notification.reference_type === "resource") {
+    return role === "admin" ? "/admin/resources" : dashboardPath(role);
+  }
+  if (notification.reference_type === "donation") {
+    return role === "admin" ? "/admin/operations" : "/donations/log";
+  }
+  return dashboardPath(role);
+}
 
 interface TopbarProps {
   title: string;
@@ -26,27 +51,25 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
   const userRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user?.role !== "volunteer") return;
+    if (!user) return;
     void apiClient.getNotifications().then(setVolunteerNotifications).catch(() => setVolunteerNotifications([]));
-  }, [user?.role]);
+  }, [user?.id]);
 
-  const notifications = user?.role === "volunteer"
+  const notifications = user
     ? volunteerNotifications.map((notification) => ({
       id: String(notification.id),
       message: notification.message,
       time: new Date(notification.created_at).toLocaleString("bn-BD"),
       read: Boolean(notification.is_read),
       type: notification.type,
-      link: notification.reference_type && notification.reference_id
-        ? `/${notification.reference_type === "task" ? "volunteer/tasks" : "volunteer/issues"}/${notification.reference_id}`
-        : undefined,
+      link: notificationPath(user?.role, notification),
     }))
     : demoNotifications;
 
   const unread = notifications.filter((n) => !n.read).length;
 
   const handleMarkNotificationsRead = async () => {
-    if (user?.role === "volunteer") {
+    if (user) {
       await apiClient.markNotificationsRead();
       setVolunteerNotifications((current) => current.map((notification) => ({ ...notification, is_read: 1 })));
       return;
@@ -73,6 +96,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
     report: "📄",
     alert: "🚨",
     resource: "📦",
+    donation: "🤝",
   };
 
   return (
@@ -94,7 +118,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-      
+        
 
         {/* Emergency status */}
         <div className="hidden sm:flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-full px-3 py-1">
@@ -158,7 +182,12 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
         </div>
 
         {/* User menu */}
-        <div className="relative" ref={userRef}>
+        {!user ? (
+          <div className="flex items-center gap-2">
+            <Link to="/donations/log" className="hidden sm:block px-2 py-1.5 text-xs font-medium text-[#2E7D5B] hover:bg-[#F4FBF6] rounded-lg">অনুদান লগ</Link>
+            <Link to="/login" className="px-3 py-1.5 text-xs font-semibold text-white bg-[#2E7D5B] rounded-lg hover:bg-[#185C43]">লগইন</Link>
+          </div>
+        ) : <div className="relative" ref={userRef}>
           <button
             onClick={() => { setShowUser((v) => !v); setShowNotif(false); }}
             className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xl hover:bg-[#F4FBF6] transition-colors"
@@ -186,7 +215,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
               </button>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </header>
   );

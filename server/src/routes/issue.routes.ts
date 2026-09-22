@@ -19,6 +19,6 @@ router.use(authenticate);
 router.post("/",           requireRole("volunteer"),          upload, validate(createIssueSchema),       ctrl.createIssue);
 router.get( "/",           requireRole("admin","volunteer"),                                              ctrl.getIssues);
 router.get( "/:id",        requireRole("admin","volunteer"),                                              ctrl.getIssue);
-router.patch("/:id/status",requireRole("admin"),              validate(updateIssueStatusSchema),          ctrl.updateIssueStatus);
+router.patch("/:id/status",requireRole("admin","volunteer"), validate(updateIssueStatusSchema),          ctrl.updateIssueStatus);
 
 export default router;

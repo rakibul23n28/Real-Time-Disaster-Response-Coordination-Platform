@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import Logo from "../../components/common/Logo";
 import DisasterMap from "../../components/maps/DisasterMap";
-import { apiClient, type Incident, type LandingStats } from "../../lib/api";
+import { apiClient, type DonationLogEntry, type Incident, type LandingStats } from "../../lib/api";
+import { useAuth } from "../../hooks/useAuth";
 
 const statLabels = [
   { key: "totalReports", label: "মোট রিপোর্ট", sub: "Total Reports" },
@@ -111,17 +112,27 @@ const footerLinks = {
 };
 
 export default function LandingPage() {
+  const { user, logout } = useAuth();
   const [landingStats, setLandingStats] = useState<LandingStats>(emptyStats);
   const [landingIncidents, setLandingIncidents] = useState<Incident[]>([]);
   const [statsVisible, setStatsVisible] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
   const [mobileNav, setMobileNav] = useState(false);
+  const [donationLogs, setDonationLogs] = useState<DonationLogEntry[]>([]);
+  const dashboardPath = user?.role === "admin" ? "/admin" : user?.role === "volunteer" ? "/volunteer" : "/citizen";
 
   useEffect(() => {
     apiClient.getPublicLandingData().then(({ stats, incidents }) => {
       setLandingStats(stats);
       setLandingIncidents(incidents);
     }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const loadDonations = () => { void apiClient.getDonationLog().then(setDonationLogs).catch(() => undefined); };
+    loadDonations();
+    const timer = window.setInterval(loadDonations, 15000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -153,26 +164,22 @@ export default function LandingPage() {
                 {item.label}
               </a>
             ))}
+            <Link to="/donations/log" className="text-sm font-medium text-[#2E7D5B] hover:text-[#185C43]">অনুদান লগ</Link>
           </div>
 
           <div className="flex items-center gap-2">
+            {user ? <>
+              <Link to={dashboardPath} className="hidden sm:flex px-4 py-2 text-sm font-medium text-[#2E7D5B] hover:text-[#185C43] transition-colors">ড্যাশবোর্ড</Link>
+              <button onClick={() => void logout()} className="hidden sm:flex px-4 py-2 text-sm font-medium text-[#66736D] hover:text-red-600 transition-colors">লগআউট</button>
+            </> : <>
+              <Link to="/login" className="hidden sm:flex px-4 py-2 text-sm font-medium text-[#2E7D5B] hover:text-[#185C43] transition-colors">লগইন</Link>
+              <Link to="/register" className="hidden sm:flex px-4 py-2 text-sm font-medium bg-[#E8F5E9] text-[#2E7D5B] rounded-[9px] hover:bg-[#d4ede0] transition-colors">নিবন্ধন</Link>
+            </>}
             <Link
-              to="/login"
-              className="hidden sm:flex px-4 py-2 text-sm font-medium text-[#2E7D5B] hover:text-[#185C43] transition-colors"
-            >
-              লগইন
-            </Link>
-            <Link
-              to="/register"
-              className="hidden sm:flex px-4 py-2 text-sm font-medium bg-[#E8F5E9] text-[#2E7D5B] rounded-[9px] hover:bg-[#d4ede0] transition-colors"
-            >
-              নিবন্ধন
-            </Link>
-            <Link
-              to="/login"
+              to="/donate"
               className="px-4 py-2 text-sm font-medium bg-[#2E7D5B] text-white rounded-[9px] hover:bg-[#185C43] transition-colors"
             >
-              জরুরি তথ্য দিন
+              সহায়তা দিন
             </Link>
             <button
               className="md:hidden p-2 rounded-lg text-[#66736D] hover:bg-[#F4FBF6]"
@@ -198,10 +205,7 @@ export default function LandingPage() {
             ).map((item) => (
               <a key={item.label} href={item.href} onClick={() => setMobileNav(false)} className="block py-2 text-sm font-medium text-[#66736D]">{item.label}</a>
             ))}
-            <div className="flex gap-2 pt-2">
-              <Link to="/login" className="flex-1 text-center py-2 text-sm font-medium border border-[#DCE6E0] rounded-lg text-[#17221D]">লগইন</Link>
-              <Link to="/register" className="flex-1 text-center py-2 text-sm font-medium bg-[#2E7D5B] rounded-lg text-white">নিবন্ধন</Link>
-            </div>
+            <div className="flex gap-2 pt-2">{user ? <><Link to={dashboardPath} className="flex-1 text-center py-2 text-sm font-medium bg-[#2E7D5B] rounded-lg text-white">ড্যাশবোর্ড</Link><button onClick={() => void logout()} className="flex-1 py-2 text-sm font-medium border border-[#DCE6E0] rounded-lg text-[#17221D]">লগআউট</button></> : <><Link to="/login" className="flex-1 text-center py-2 text-sm font-medium border border-[#DCE6E0] rounded-lg text-[#17221D]">লগইন</Link><Link to="/register" className="flex-1 text-center py-2 text-sm font-medium bg-[#2E7D5B] rounded-lg text-white">নিবন্ধন</Link></>}</div>
           </div>
         )}
       </nav>
@@ -216,10 +220,10 @@ export default function LandingPage() {
             </p>
           </div>
           <Link
-            to="/login"
+            to="/donate"
             className="flex-shrink-0 px-4 py-1.5 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            রিপোর্ট করুন
+            সহায়তা দিন
           </Link>
         </div>
       </div>
@@ -242,10 +246,10 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  to="/login"
+                  to={user ? dashboardPath : "/login"}
                   className="px-6 py-3 bg-[#2E7D5B] text-white font-semibold rounded-[10px] hover:bg-[#185C43] transition-colors shadow-sm"
                 >
-                  দুর্যোগের তথ্য দিন
+                  {user ? "ড্যাশবোর্ডে যান" : "দুর্যোগের তথ্য দিন"}
                 </Link>
                 <a
                   href="#how-it-works"
@@ -281,6 +285,20 @@ export default function LandingPage() {
             {statLabels.map((stat) => (
               <StatItem key={stat.label} value={landingStats[stat.key]} label={stat.label} sub={stat.sub} animate={statsVisible} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden border-b border-[#DCE6E0] bg-[#17221D] py-3" aria-label="সাম্প্রতিক নিশ্চিত অনুদান">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 sm:px-6">
+          <Link to="/donations/log" className="relative z-10 flex flex-shrink-0 items-center gap-2 rounded-full bg-[#2E7D5B] px-3 py-1.5 text-xs font-semibold text-white">
+            <span className="size-1.5 rounded-full bg-white animate-pulse" /> লাইভ অনুদান
+          </Link>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="donation-marquee flex min-w-max gap-8 whitespace-nowrap">
+              {[...donationLogs, ...donationLogs].map((entry, index) => <span key={`${entry.id}-${index}`} className="text-sm text-white/85">{entry.donor_name} <span className="text-[#8DCEA9]">{entry.donation_type === "money" ? `৳${Number(entry.amount).toLocaleString("bn-BD")}` : `${entry.item_name} ${entry.quantity} ${entry.unit}`}</span> · {entry.place_name}</span>)}
+              {donationLogs.length === 0 && <span className="text-sm text-white/65">নিশ্চিত অনুদানের আপডেট এখানে সরাসরি দেখা যাবে।</span>}
+            </div>
           </div>
         </div>
       </section>

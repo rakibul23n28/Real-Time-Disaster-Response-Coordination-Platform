@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { useAuth } from "../../hooks/useAuth";
+import PublicNavbar from "./PublicNavbar";
 
 const pageTitles: Record<string, string> = {
   "/citizen": "ড্যাশবোর্ড",
@@ -22,9 +23,11 @@ const pageTitles: Record<string, string> = {
   "/admin/resources": "ত্রাণ বরাদ্দ",
   "/admin/inventory": "মজুত ব্যবস্থাপনা",
   "/admin/operations": "অপারেশন",
+  "/donate": "সহায়তা দিন",
+  "/donations/log": "অনুদান লগ",
 };
 
-export default function AppLayout() {
+export default function AppLayout({ publicMode = false }: { publicMode?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
@@ -33,13 +36,10 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-full bg-[#F7F9F8] overflow-hidden">
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex flex-shrink-0">
-        <Sidebar />
-      </div>
+      {!publicMode && <div className="hidden lg:flex flex-shrink-0"><Sidebar /></div>}
 
       {/* Mobile sidebar overlay */}
-      {mobileOpen && (
+      {mobileOpen && !publicMode && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
           <div className="relative z-50 h-full w-60">
@@ -50,7 +50,7 @@ export default function AppLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar title={title} onMenuClick={() => setMobileOpen(true)} />
+        {publicMode ? <PublicNavbar /> : <Topbar title={title} onMenuClick={() => setMobileOpen(true)} />}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </main>

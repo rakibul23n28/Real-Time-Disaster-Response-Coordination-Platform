@@ -50,6 +50,17 @@ export interface Incident {
   activeVolunteers?: number;
 }
 
+export interface VolunteerLocation {
+  volunteer_id: number;
+  task_id: number;
+  latitude: number | string;
+  longitude: number | string;
+  volunteer_name: string;
+  area_name?: string;
+  district?: string;
+  updated_at: string;
+}
+
 export interface LandingStats {
   totalReports: number;
   verifiedIncidents: number;
@@ -97,8 +108,12 @@ export interface ApiTask {
   loc_lat?: number | string | null;
   loc_lng?: number | string | null;
   assigned_at?: string;
-  assignments?: { volunteer_id: number; volunteer_name: string }[];
+  assignment_status?: "pending" | "accepted" | "declined";
+  decline_reason?: string | null;
+  assignments?: { volunteer_id: number; volunteer_name: string; status?: "pending" | "accepted" | "declined"; decline_reason?: string | null }[];
 }
+
+export interface ApiVolunteer { id: number; name: string; email: string; is_available: number | boolean; }
 
 export interface ApiIssue {
   id: number;
@@ -111,6 +126,9 @@ export interface ApiIssue {
   longitude?: number | string | null;
   status: "reported" | "in_progress" | "resolved";
   created_at: string;
+  reporter_name?: string;
+  task_title?: string;
+  area_name?: string;
 }
 
 export interface CreateIssueInput {
@@ -163,6 +181,52 @@ export interface ApiAllocation {
   unit: string;
   allocated_by_name?: string;
   created_at: string;
+}
+
+export interface DonationPlace {
+  id: number;
+  name: string;
+  organization: string;
+  address: string;
+  district: string;
+  division: string;
+  phone?: string;
+  categories: string;
+  latitude: number | string;
+  longitude: number | string;
+}
+
+export interface DonationLogEntry {
+  id: number;
+  donation_type: "money" | "item";
+  category: "food" | "water" | "medical" | "other";
+  donor_name: string;
+  is_anonymous: number;
+  amount?: number | string | null;
+  item_name?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  note?: string | null;
+  place_name: string;
+  organization: string;
+  district: string;
+  division: string;
+  created_at: string;
+  status?: "pending" | "received" | "confirmed" | "cancelled";
+}
+
+export interface CreateDonationInput {
+  donation_type: "money" | "item";
+  category: "food" | "water" | "medical" | "other";
+  donor_name?: string;
+  donor_contact?: string;
+  is_anonymous: boolean;
+  amount?: number;
+  item_name?: string;
+  quantity?: number;
+  unit?: string;
+  place_id: number;
+  note?: string;
 }
 
 export interface AdminDashboardData {
@@ -454,6 +518,12 @@ class ApiClient {
     }));
   }
 
+  async getPublicVolunteerLocations(): Promise<VolunteerLocation[]> {
+    const response = await fetch(`${API_BASE_URL}/public/volunteer-locations`);
+    const data = await this.handleResponse<ApiResponse<VolunteerLocation[]>>(response);
+    return data.data;
+  }
+
   async getPublicLandingData(): Promise<{ stats: LandingStats; incidents: Incident[] }> {
     const [summaryResponse, incidentsResponse] = await Promise.all([
       fetch(`${API_BASE_URL}/public/landing`),
@@ -549,6 +619,18 @@ class ApiClient {
     return data.data;
   }
 
+  async getVolunteers(): Promise<ApiVolunteer[]> {
+    const response = await fetch(`${API_BASE_URL}/tasks/volunteers/list`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<ApiVolunteer[]>>(response);
+    return data.data;
+  }
+
+  async assignTask(taskId: number, volunteerId: number): Promise<ApiTask> {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/assign`, { method: "POST", headers: this.getHeaders(), body: JSON.stringify({ volunteer_id: volunteerId }) });
+    const data = await this.handleResponse<ApiResponse<ApiTask>>(response);
+    return data.data;
+  }
+
   async updateTaskStatus(id: number, status: ApiTask["status"]): Promise<ApiTask> {
     const response = await fetch(`${API_BASE_URL}/tasks/${id}/status`, {
       method: "PATCH",
@@ -557,6 +639,23 @@ class ApiClient {
     });
     const data = await this.handleResponse<ApiResponse<ApiTask>>(response);
     return data.data;
+  }
+
+  async acceptAssignment(id: number): Promise<ApiTask> {
+    const response = await fetch(`${API_BASE_URL}/tasks/${id}/assignment/accept`, { method: "PATCH", headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<ApiTask>>(response);
+    return data.data;
+  }
+
+  async declineAssignment(id: number, reason: string): Promise<ApiTask> {
+    const response = await fetch(`${API_BASE_URL}/tasks/${id}/assignment/decline`, { method: "PATCH", headers: this.getHeaders(), body: JSON.stringify({ reason }) });
+    const data = await this.handleResponse<ApiResponse<ApiTask>>(response);
+    return data.data;
+  }
+
+  async updateVolunteerLocation(id: number, input: { latitude: number; longitude: number; is_sharing: boolean }): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/tasks/${id}/location`, { method: "PUT", headers: this.getHeaders(), body: JSON.stringify(input) });
+    await this.handleResponse<ApiResponse<unknown>>(response);
   }
 
   async getIssues(): Promise<ApiIssue[]> {
@@ -619,6 +718,44 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     await this.handleResponse<ApiResponse<null>>(response);
+  }
+
+  async getDonationPlaces(category?: DonationPlace["categories"]): Promise<DonationPlace[]> {
+    const query = category ? `?category=${encodeURIComponent(category)}` : "";
+    const response = await fetch(`${API_BASE_URL}/donations/places${query}`);
+    const data = await this.handleResponse<ApiResponse<DonationPlace[]>>(response);
+    return data.data;
+  }
+
+  async getDonationLog(category?: CreateDonationInput["category"]): Promise<DonationLogEntry[]> {
+    const query = category ? `?category=${encodeURIComponent(category)}` : "";
+    const response = await fetch(`${API_BASE_URL}/donations/log${query}`);
+    const data = await this.handleResponse<ApiResponse<DonationLogEntry[]>>(response);
+    return data.data;
+  }
+
+  async createDonation(input: CreateDonationInput): Promise<DonationLogEntry> {
+    const response = await fetch(`${API_BASE_URL}/donations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<DonationLogEntry>>(response);
+    return data.data;
+  }
+
+  async getPendingDonations(): Promise<DonationLogEntry[]> {
+    const response = await fetch(`${API_BASE_URL}/donations/pending`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<DonationLogEntry[]>>(response);
+    return data.data;
+  }
+
+  async confirmDonation(id: number): Promise<DonationLogEntry> {
+    const response = await fetch(`${API_BASE_URL}/donations/${id}/confirm`, {
+      method: "PATCH", headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<ApiResponse<DonationLogEntry>>(response);
+    return data.data;
   }
 }
 

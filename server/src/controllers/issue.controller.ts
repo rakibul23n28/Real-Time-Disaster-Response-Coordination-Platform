@@ -16,15 +16,15 @@ export async function getIssues(req: AuthRequest, res: Response, next: NextFunct
   try {
     const page  = Number(req.query.page  ?? 1);
     const limit = Math.min(Number(req.query.limit ?? 20), 100);
-    const reportedBy = req.user!.role === "volunteer" ? req.user!.userId : undefined;
-    const { issues, total } = await issueService.getIssues(page, limit, reportedBy);
+    const volunteerId = req.user!.role === "volunteer" ? req.user!.userId : undefined;
+    const { issues, total } = await issueService.getIssues(page, limit, volunteerId);
     paginated(res, issues, total, page, limit);
   } catch (err) { next(err); }
 }
 
 export async function getIssue(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const issue = await issueService.getIssueById(Number(req.params.id));
+    const issue = await issueService.getIssueById(Number(req.params.id), req.user!.role === "volunteer" ? req.user!.userId : undefined);
     if (!issue) { fail(res, "Issue not found", 404); return; }
     ok(res, issue);
   } catch (err) { next(err); }
@@ -32,7 +32,7 @@ export async function getIssue(req: AuthRequest, res: Response, next: NextFuncti
 
 export async function updateIssueStatus(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const issue = await issueService.updateIssueStatus(Number(req.params.id), req.body);
+    const issue = await issueService.updateIssueStatus(Number(req.params.id), req.user!.userId, req.user!.role === "admin", req.body);
     ok(res, issue, "Issue status updated");
   } catch (err) { next(err); }
 }

@@ -2,6 +2,7 @@ export type IssueType = "road_blocked" | "extra_relief" | "medical" | "boat_need
 
 export interface FieldIssue {
   id: string;
+  backendId?: number;
   taskId: string;
   type: IssueType;
   label: string;

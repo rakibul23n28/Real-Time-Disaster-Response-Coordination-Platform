@@ -28,6 +28,10 @@ export async function getTask(req: AuthRequest, res: Response, next: NextFunctio
   } catch (err) { next(err); }
 }
 
+export async function getVolunteers(_req: AuthRequest, res: Response, next: NextFunction) {
+  try { ok(res, await taskService.getVolunteers()); } catch (err) { next(err); }
+}
+
 export async function assignTask(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const task = await taskService.assignTask(Number(req.params.id), req.user!.userId, req.body);
@@ -49,4 +53,16 @@ export async function updateTaskStatus(req: AuthRequest, res: Response, next: Ne
     );
     ok(res, task, "Task status updated");
   } catch (err) { next(err); }
+}
+
+export async function acceptAssignment(req: AuthRequest, res: Response, next: NextFunction) {
+  try { ok(res, await taskService.respondToAssignment(Number(req.params.id), req.user!.userId, "accepted"), "কাজটি গ্রহণ করা হয়েছে"); } catch (err) { next(err); }
+}
+
+export async function declineAssignment(req: AuthRequest, res: Response, next: NextFunction) {
+  try { ok(res, await taskService.respondToAssignment(Number(req.params.id), req.user!.userId, "declined", req.body.reason), "কাজটি প্রত্যাখ্যান করা হয়েছে"); } catch (err) { next(err); }
+}
+
+export async function updateVolunteerLocation(req: AuthRequest, res: Response, next: NextFunction) {
+  try { ok(res, await taskService.updateVolunteerLocation(Number(req.params.id), req.user!.userId, req.body), "অবস্থান আপডেট হয়েছে"); } catch (err) { next(err); }
 }

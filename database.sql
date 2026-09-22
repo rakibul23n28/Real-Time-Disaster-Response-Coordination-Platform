@@ -115,12 +115,29 @@ CREATE TABLE task_assignments (
   task_id      INT UNSIGNED NOT NULL,
   volunteer_id INT UNSIGNED NOT NULL,
   assigned_by  INT UNSIGNED NOT NULL,
+  status       ENUM('pending','accepted','declined') NOT NULL DEFAULT 'pending',
+  decline_reason VARCHAR(500) DEFAULT NULL,
+  responded_at DATETIME DEFAULT NULL,
   assigned_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_task_volunteer (task_id, volunteer_id),
   CONSTRAINT fk_ta_task      FOREIGN KEY (task_id)      REFERENCES tasks(id) ON DELETE CASCADE,
   CONSTRAINT fk_ta_volunteer FOREIGN KEY (volunteer_id) REFERENCES users(id) ON DELETE RESTRICT,
   CONSTRAINT fk_ta_assigner  FOREIGN KEY (assigned_by)  REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE volunteer_locations (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  volunteer_id INT UNSIGNED NOT NULL,
+  task_id      INT UNSIGNED NOT NULL,
+  latitude     DECIMAL(9,6) NOT NULL,
+  longitude    DECIMAL(9,6) NOT NULL,
+  is_sharing   BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_volunteer_task_location (volunteer_id, task_id),
+  CONSTRAINT fk_vl_volunteer FOREIGN KEY (volunteer_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_vl_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
@@ -252,6 +269,49 @@ CREATE TABLE notifications (
 
 CREATE INDEX idx_notif_user_read ON notifications (user_id, is_read);
 
+-- ----------------------------------------------------------------
+-- donation_places and donations
+-- ----------------------------------------------------------------
+CREATE TABLE donation_places (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name         VARCHAR(200) NOT NULL,
+  organization VARCHAR(200) NOT NULL,
+  address      VARCHAR(300) NOT NULL,
+  district     VARCHAR(80) NOT NULL,
+  division     VARCHAR(80) NOT NULL,
+  phone        VARCHAR(30) DEFAULT NULL,
+  categories   SET('food','water','medical','other') NOT NULL,
+  latitude     DECIMAL(9,6) NOT NULL,
+  longitude    DECIMAL(9,6) NOT NULL,
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE donations (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  donation_type ENUM('money','item') NOT NULL,
+  category      ENUM('food','water','medical','other') NOT NULL,
+  donor_name    VARCHAR(120) DEFAULT NULL,
+  donor_contact VARCHAR(120) DEFAULT NULL,
+  is_anonymous  BOOLEAN NOT NULL DEFAULT FALSE,
+  amount        DECIMAL(12,2) DEFAULT NULL,
+  item_name     VARCHAR(120) DEFAULT NULL,
+  quantity      INT UNSIGNED DEFAULT NULL,
+  unit          VARCHAR(40) DEFAULT NULL,
+  place_id      INT UNSIGNED NOT NULL,
+  note          VARCHAR(500) DEFAULT NULL,
+  status        ENUM('pending','received','confirmed','cancelled') NOT NULL DEFAULT 'pending',
+  confirmed_by  INT UNSIGNED DEFAULT NULL,
+  confirmed_at  DATETIME DEFAULT NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_donation_place FOREIGN KEY (place_id) REFERENCES donation_places(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_donation_confirmer FOREIGN KEY (confirmed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_donations_category_created ON donations (category, created_at);
+
 -- ================================================================
 -- DEMO SEED DATA
 -- ================================================================
@@ -262,11 +322,16 @@ CREATE INDEX idx_notif_user_read ON notifications (user_id, is_read);
 -- bcrypt hash of "demo1234" (12 rounds)
 -- ----------------------------------------------------------------
 INSERT INTO users (name, email, phone, password_hash, role) VALUES
-('রাকিবুল হাসান',  'citizen@example.com',   '01711-234567', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4NQRJvGmGu', 'citizen'),
-('তানজিলা খানম',   'volunteer@example.com', '01812-345678', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4NQRJvGmGu', 'volunteer'),
-('ডাঃ শামীম রেজা', 'admin@example.com',     '01611-456789', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4NQRJvGmGu', 'admin'),
-('নাসরিন আক্তার',  'nasrin@example.com',    '01911-111222', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4NQRJvGmGu', 'citizen'),
-('তানভীর আহমেদ',   'tanvir@example.com',    '01711-333444', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4NQRJvGmGu', 'citizen');
+('রাকিবুল হাসান',  'citizen@example.com',   '01711-234567', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'citizen'),
+('তানজিলা খানম',   'volunteer@example.com', '01812-345678', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
+('ডাঃ শামীম রেজা', 'admin@example.com',     '01611-456789', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'admin'),
+('নাসরিন আক্তার',  'nasrin@example.com',    '01911-111222', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'citizen'),
+('তানভীর আহমেদ',   'tanvir@example.com',    '01711-333444', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'citizen'),
+('মো. সাকিব হোসেন', 'sakib.volunteer@example.com', '01711-555001', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
+('ফারজানা ইয়াসমিন', 'farzana.volunteer@example.com', '01711-555002', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
+('ইমরান কবির', 'imran.volunteer@example.com', '01711-555003', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
+('মেহেদী হাসান', 'mehedi.volunteer@example.com', '01711-555004', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
+('শারমিন আক্তার', 'sharmin.volunteer@example.com', '01711-555005', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer');
 
 -- ----------------------------------------------------------------
 -- Demo locations
@@ -282,6 +347,32 @@ INSERT INTO locations (name, district, division, latitude, longitude) VALUES
 ('পুরান ঢাকা',                'ঢাকা',      'ঢাকা',       23.710400, 90.407400),
 ('কুমিল্লা সদর',              'কুমিল্লা',  'চট্টগ্রাম',  23.460700, 91.180900),
 ('যশোর সদর',                  'যশোর',      'খুলনা',      23.166700, 89.216700);
+
+INSERT INTO donation_places (name, organization, address, district, division, phone, categories, latitude, longitude) VALUES
+('ঢাকা কেন্দ্রীয় সংগ্রহ কেন্দ্র', 'বাংলাদেশ রেড ক্রিসেন্ট', 'মতিঝিল, ঢাকা', 'ঢাকা', 'ঢাকা', '০১৭০০-০০০০০১', 'food,water,medical,other', 23.733700, 90.417200),
+('চট্টগ্রাম ত্রাণ কেন্দ্র', 'চট্টগ্রাম সিটি কর্পোরেশন', 'আগ্রাবাদ, চট্টগ্রাম', 'চট্টগ্রাম', 'চট্টগ্রাম', '০১৭০০-০০০০০২', 'food,water,other', 22.324900, 91.811900),
+('সিলেট মানবিক সহায়তা কেন্দ্র', 'সিলেট বিভাগীয় প্রশাসন', 'সিলেট সদর', 'সিলেট', 'সিলেট', '০১৭০০-০০০০০৩', 'food,water,medical', 24.894900, 91.868700),
+('খুলনা উপকূলীয় সংগ্রহ পয়েন্ট', 'উপকূল বন্ধু ফাউন্ডেশন', 'খুলনা সদর', 'খুলনা', 'খুলনা', '০১৭০০-০০০০০৪', 'food,water,other', 22.845600, 89.540300),
+('বরিশাল জনকল্যাণ কেন্দ্র', 'বার্ন ফাউন্ডেশন বাংলাদেশ', 'সদর রোড, বরিশাল', 'বরিশাল', 'বরিশাল', '০১৭০০-০০০০০৫', 'food,medical,other', 22.701000, 90.353500);
+
+-- Demo donations: confirmed entries are visible in the public donation log;
+-- pending and received entries wait for admin confirmation.
+INSERT INTO donations
+  (donation_type, category, donor_name, donor_contact, is_anonymous, amount, item_name, quantity, unit, place_id, note, status, confirmed_by, confirmed_at, created_at)
+VALUES
+('money', 'food', 'আলোর পথ ফাউন্ডেশন', 'info@alorpoth.org', FALSE, 75000.00, NULL, NULL, NULL, 1, 'সুনামগঞ্জের জরুরি খাদ্য সহায়তা', 'confirmed', 3, '2026-09-22 09:15:00', '2026-09-21 16:40:00'),
+('money', 'medical', NULL, NULL, TRUE, 25000.00, NULL, NULL, NULL, 2, 'জরুরি চিকিৎসা তহবিল', 'confirmed', 3, '2026-09-22 10:00:00', '2026-09-22 08:25:00'),
+('item', 'food', 'ঢাকা বাজার ব্যবসায়ী সমিতি', '০১৮১২-৭৭৭০০১', FALSE, NULL, 'চাল', 1200, 'কেজি', 1, 'পরিবারভিত্তিক বিতরণের জন্য', 'confirmed', 3, '2026-09-22 11:30:00', '2026-09-22 09:10:00'),
+('item', 'water', 'নিরাপদ পানি উদ্যোগ', '০১৯১২-৭৭৭০০২', FALSE, NULL, 'বিশুদ্ধ পানির বোতল', 2400, 'বোতল', 3, 'সিলেট শহরের আশ্রয়কেন্দ্র', 'confirmed', 3, '2026-09-22 12:10:00', '2026-09-22 10:20:00'),
+('item', 'medical', 'ডা. নাবিলা রহমান', '০১৭১২-৭৭৭০০৩', FALSE, NULL, 'ওআরএস স্যালাইন', 850, 'প্যাকেট', 3, 'পানিবাহিত রোগ প্রতিরোধে', 'confirmed', 3, '2026-09-22 13:00:00', '2026-09-22 11:05:00'),
+('item', 'other', NULL, NULL, TRUE, NULL, 'কম্বল', 300, 'পিস', 4, 'উপকূলের ক্ষতিগ্রস্ত পরিবারের জন্য', 'confirmed', 3, '2026-09-22 14:20:00', '2026-09-22 12:35:00'),
+('money', 'other', 'প্রবাসী সহায়তা নেটওয়ার্ক', 'help@probashi.net', FALSE, 120000.00, NULL, NULL, NULL, 5, 'নদীভাঙন পুনর্বাসন সহায়তা', 'confirmed', 3, '2026-09-22 15:00:00', '2026-09-22 13:10:00'),
+('item', 'food', 'বরিশাল রোটারি ক্লাব', '০১৬১২-৭৭৭০০৪', FALSE, NULL, 'শুকনো খাবারের প্যাকেট', 650, 'প্যাকেট', 5, 'তিন দিনের খাদ্য সহায়তা', 'confirmed', 3, '2026-09-23 08:30:00', '2026-09-23 07:10:00'),
+('item', 'water', 'সবুজ বাংলা স্বেচ্ছাসেবী দল', '০১৮১২-৭৭৭০০৫', FALSE, NULL, 'পানির ড্রাম', 45, 'ড্রাম', 4, 'উপকূলীয় আশ্রয়কেন্দ্র', 'confirmed', 3, '2026-09-23 09:00:00', '2026-09-23 07:45:00'),
+('money', 'food', 'একজন শুভাকাঙ্ক্ষী', NULL, TRUE, 15000.00, NULL, NULL, NULL, 1, 'নাম প্রকাশে অনিচ্ছুক', 'pending', NULL, NULL, '2026-09-23 08:05:00'),
+('item', 'medical', 'সেবা ফার্মেসি', '০১৭১২-৭৭৭০০৬', FALSE, NULL, 'প্রাথমিক চিকিৎসা কিট', 80, 'কিট', 2, 'চট্টগ্রাম ত্রাণকেন্দ্রে পৌঁছাবে', 'pending', NULL, NULL, '2026-09-23 08:40:00'),
+('item', 'other', 'মানবিক হাত সংগঠন', '০১৯১২-৭৭৭০০৭', FALSE, NULL, 'ত্রিপল / শেড', 120, 'পিস', 4, 'অস্থায়ী আশ্রয়ের জন্য', 'received', NULL, NULL, '2026-09-23 09:05:00'),
+('money', 'water', 'নদী বন্ধু কর্পোরেট ফান্ড', 'fund@nodi-bondhu.com', FALSE, 50000.00, NULL, NULL, NULL, 3, 'বিশুদ্ধ পানি সরবরাহ', 'pending', NULL, NULL, '2026-09-23 09:40:00');
 
 -- ----------------------------------------------------------------
 -- Demo reports
@@ -367,9 +458,17 @@ INSERT INTO tasks (task_code, report_id, title, description, instructions, prior
  'বরিশাল নদী তীরবর্তী ক্ষতিগ্রস্ত পরিবারগুলোর মধ্যে খাবার ও পানি বিতরণ করুন।',
  'high',     'en_route',    5, 6, 3, '2026-09-01 09:30:00');
 
--- Assign volunteer (id=2) to all tasks; admin (id=3) is the assigner
-INSERT INTO task_assignments (task_id, volunteer_id, assigned_by) VALUES
-(1, 2, 3), (2, 2, 3), (3, 2, 3), (4, 2, 3), (5, 2, 3), (6, 2, 3);
+-- Assign one volunteer to one active disaster area; admin (id=3) is the assigner
+INSERT INTO task_assignments (task_id, volunteer_id, assigned_by, status, responded_at) VALUES
+(1, 2, 3, 'accepted', CURRENT_TIMESTAMP), (2, 6, 3, 'accepted', CURRENT_TIMESTAMP), (3, 7, 3, 'accepted', CURRENT_TIMESTAMP),
+(4, 8, 3, 'accepted', CURRENT_TIMESTAMP), (5, 9, 3, 'accepted', CURRENT_TIMESTAMP), (6, 10, 3, 'accepted', CURRENT_TIMESTAMP);
+
+-- Demo live volunteer locations for active assignments
+INSERT INTO volunteer_locations (volunteer_id, task_id, latitude, longitude, is_sharing, updated_at) VALUES
+(2, 1, 24.895100, 91.388200, TRUE, '2026-09-23 10:20:00'),
+(6, 2, 24.900700, 91.861900, TRUE, '2026-09-23 10:18:00'),
+(7, 3, 22.641200, 92.158700, TRUE, '2026-09-23 10:15:00'),
+(9, 5, 21.431700, 92.012400, TRUE, '2026-09-23 10:12:00');
 
 -- ----------------------------------------------------------------
 -- Demo field issues
@@ -383,15 +482,15 @@ INSERT INTO field_issues (issue_code, reported_by, task_id, report_id, issue_typ
  'হাওর এলাকায় উদ্ধার কাজের জন্য আরও নৌকা প্রয়োজন।',
  'হাওর এলাকা, সুনামগঞ্জ', 24.9000, 91.3800, 'reported', '2026-09-01 09:45:00'),
 
-('ISSUE-003', 2, 5, 2, 'medical',
+('ISSUE-003', 9, 5, 2, 'medical',
  'আশ্রয়কেন্দ্রে ডায়রিয়া ও পানিবাহিত রোগের প্রকোপ বাড়ছে। বিশেষজ্ঞ চিকিৎসক প্রয়োজন।',
  'কক্সবাজার আশ্রয়কেন্দ্র', 21.4300, 92.0100, 'reported', '2026-09-01 07:30:00'),
 
-('ISSUE-004', 2, 2, 3, 'extra_relief',
+('ISSUE-004', 6, 2, 3, 'extra_relief',
  'বরাদ্দকৃত ত্রাণ শেষ হয়ে গেছে। আরও ৫০০ পরিবারকে সহায়তা দিতে হবে।',
  'সিলেট শহর, ওয়ার্ড ১২', 24.8800, 91.8700, 'in_progress', '2026-08-31 14:00:00'),
 
-('ISSUE-005', 2, 3, 4, 'more_volunteers',
+('ISSUE-005', 7, 3, 4, 'more_volunteers',
  'রাস্তা পরিষ্কার কাজে আরও কমপক্ষে ১০ জন স্বেচ্ছাসেবক প্রয়োজন।',
  'রাঙামাটি-চট্টগ্রাম সড়ক', 22.6300, 92.1700, 'resolved', '2026-08-31 10:00:00');
 
@@ -473,3 +572,12 @@ INSERT INTO notifications (user_id, title, message, type, reference_type, refere
 (3, 'রিপোর্ট যাচাই প্রয়োজন','RPT-003 সিলেট শহরে জলাবদ্ধতা — যাচাই বাকি আছে',                         'warning', 'report', 3),
 (1, 'রিপোর্ট যাচাই হয়েছে',  'আপনার রিপোর্ট RPT-007 যাচাই হয়েছে',                                    'success', 'report', 7),
 (2, 'টাস্ক আপডেট',           'TASK-003 রাস্তা পরিষ্কার কাজ চলছে',                                      'info',    'task',   3);
+
+-- Additional notification examples for citizen, admin and area volunteers
+INSERT INTO notifications (user_id, title, message, type, reference_type, reference_id) VALUES
+(6, 'নতুন মাঠ সমস্যা', 'সিলেট শহর, ওয়ার্ড ১২ এলাকায় অতিরিক্ত ত্রাণ প্রয়োজন।', 'alert', 'issue', 4),
+(7, 'মাঠ সমস্যা আপডেট', 'রাঙামাটি-চট্টগ্রাম সড়কের সমস্যাটি সমাধান হয়েছে।', 'success', 'issue', 5),
+(9, 'জরুরি চিকিৎসা সহায়তা', 'কক্সবাজার আশ্রয়কেন্দ্রে চিকিৎসা সহায়তা প্রয়োজন।', 'alert', 'issue', 3),
+(3, 'নতুন অনুদান নিশ্চিতকরণ বাকি', 'একটি নতুন অনুদান প্রশাসকের নিশ্চিতকরণের অপেক্ষায় আছে।', 'warning', 'donation', 10),
+(1, 'আপনার এলাকার সহায়তা', 'সুনামগঞ্জের জন্য নতুন খাদ্য সহায়তা নিশ্চিত হয়েছে।', 'success', 'donation', 1),
+(4, 'কক্সবাজার রিপোর্ট আপডেট', 'কক্সবাজারে ঘূর্ণিঝড়ের রিপোর্টটি পর্যালোচনাধীন।', 'info', 'report', 2);

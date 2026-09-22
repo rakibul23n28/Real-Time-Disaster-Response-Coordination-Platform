@@ -19,12 +19,13 @@ const statusColor: Record<string, string> = {
 };
 
 export default function FieldIssues() {
-  const { issues, addIssue } = useVolunteerData();
+  const { issues, tasks, addIssue, updateIssueStatus } = useVolunteerData();
   const { showToast } = useToast();
 
   const [selectedType, setSelectedType] = useState<IssueType | null>(null);
   const [locationName, setLocationName] = useState("");
   const [description, setDescription] = useState("");
+  const [taskId, setTaskId] = useState(0);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<FieldIssue | null>(null);
   const [error, setError] = useState("");
@@ -32,17 +33,20 @@ export default function FieldIssues() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedType) { setError("সমস্যার ধরন নির্বাচন করুন।"); return; }
+    if (!taskId) { setError("আপনার কাজের এলাকা নির্বাচন করুন।"); return; }
     if (!locationName.trim()) { setError("অবস্থানের নাম লিখুন।"); return; }
     setError("");
     setLoading(true);
     const cfg = issueTypeConfig[selectedType];
+    const workingTask = tasks.find((task) => task.backendId === taskId);
     try {
       const newIssue = await addIssue({
+        task_id: taskId,
         issue_type: selectedType,
         description: description || `${cfg.label}: ${locationName}`,
         location_name: locationName,
-        latitude: 24.8917,
-        longitude: 91.3967,
+        latitude: workingTask?.location.lat,
+        longitude: workingTask?.location.lng,
       });
       setSuccess(newIssue);
     } catch (err) {
@@ -66,7 +70,7 @@ export default function FieldIssues() {
             <div><p className="text-xs text-[#66736D]">সমস্যার ধরন</p><p className="font-semibold text-[#17221D]">{success.icon} {success.label}</p></div>
             <div><p className="text-xs text-[#66736D]">অবস্থা</p><p className="font-semibold text-amber-600">প্রশাসনের কাছে পাঠানো হয়েছে</p></div>
           </div>
-          <Button onClick={() => { setSuccess(null); setSelectedType(null); setLocationName(""); setDescription(""); }} fullWidth>ঠিক আছে</Button>
+          <Button onClick={() => { setSuccess(null); setSelectedType(null); setTaskId(0); setLocationName(""); setDescription(""); }} fullWidth>ঠিক আছে</Button>
         </div>
       </div>
     );
@@ -87,7 +91,7 @@ export default function FieldIssues() {
             )}
 
             {/* Issue type buttons */}
-            <div className="mb-4">
+              <div className="mb-4">
               <p className="text-sm font-medium text-[#17221D] mb-2">সমস্যার ধরন নির্বাচন করুন</p>
               <div className="grid grid-cols-2 gap-2">
                 {issueList.map(([type, cfg]) => (
@@ -109,6 +113,13 @@ export default function FieldIssues() {
                 ))}
               </div>
             </div>
+
+            <label className="mb-4 block text-sm font-medium text-[#17221D]">কাজের এলাকা <span className="text-red-500">*</span>
+              <select value={taskId} onChange={(event) => { setTaskId(Number(event.target.value)); setError(""); }} className="input-base mt-1">
+                <option value={0}>গ্রহণ করা কাজ নির্বাচন করুন</option>
+                {tasks.filter((task) => task.assignmentStatus === "accepted" && task.status !== "completed").map((task) => <option key={task.backendId} value={task.backendId}>{task.title} · {task.location.name}</option>)}
+              </select>
+            </label>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -144,7 +155,7 @@ export default function FieldIssues() {
 
         {/* Issue history */}
         <div>
-          <h3 className="font-semibold text-[#17221D] mb-3">পাঠানো সমস্যাসমূহ</h3>
+          <h3 className="font-semibold text-[#17221D] mb-3">আমার কাজের এলাকার সমস্যা</h3>
           {issues.length === 0 ? (
             <div className="bg-white rounded-xl border border-[#DCE6E0] p-8 text-center">
               <p className="text-sm text-[#66736D]">এখনও কোনো সমস্যা জানানো হয়নি।</p>
@@ -166,7 +177,9 @@ export default function FieldIssues() {
                     </span>
                   </div>
                   {issue.description && <p className="text-xs text-[#66736D]">{issue.description}</p>}
+                  <p className="text-[11px] text-[#2E7D5B] mt-1">{issue.taskId ? `কাজ: ${issue.taskId}` : "কাজের এলাকা"}</p>
                   <p className="text-xs text-[#66736D] mt-1">{issue.displayTime}</p>
+                  {issue.status !== "resolved" && <button onClick={() => void updateIssueStatus(issue, issue.status === "reported" ? "in_progress" : "resolved")} className="mt-2 text-xs font-semibold text-[#2E7D5B] hover:underline">{issue.status === "reported" ? "সমস্যাটি দেখা হয়েছে" : "সমাধান হয়েছে"} →</button>}
                 </div>
               ))}
             </div>

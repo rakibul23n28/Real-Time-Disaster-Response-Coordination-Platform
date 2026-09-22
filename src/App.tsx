@@ -8,6 +8,8 @@ import AppLayout from "./components/layout/AppLayout";
 // Public
 import LandingPage from "./pages/public/LandingPage";
 import NotFoundPage from "./pages/public/NotFoundPage";
+import DonationPage from "./pages/public/DonationPage";
+import DonationLogPage from "./pages/public/DonationLogPage";
 
 // Auth
 import LoginPage from "./pages/auth/LoginPage";
@@ -55,6 +57,10 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route element={<AppLayout publicMode />}>
+            <Route path="/donate" element={<DonationPage />} />
+            <Route path="/donations/log" element={<DonationLogPage />} />
+          </Route>
 
           {/* Citizen */}
           <Route element={<ProtectedRoute role="citizen" />}>

@@ -24,10 +24,26 @@ export async function getPublicIncidents(_req: AuthRequest, res: Response, next:
               r.affected_people, COUNT(DISTINCT ta.volunteer_id) AS activeVolunteers
        FROM reports r
        LEFT JOIN tasks t ON t.report_id = r.id AND t.status != 'completed'
-       LEFT JOIN task_assignments ta ON ta.task_id = t.id
+      LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.status = 'accepted'
        WHERE r.status != 'rejected' AND r.latitude IS NOT NULL
        GROUP BY r.id, r.report_code, r.latitude, r.longitude, r.severity, r.status,
                 r.location_name, r.disaster_type, r.affected_people`
+    );
+    ok(res, rows);
+  } catch (err) { next(err); }
+}
+
+export async function getPublicVolunteerLocations(_req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT vl.volunteer_id, vl.task_id, vl.latitude, vl.longitude, vl.updated_at,
+              u.name AS volunteer_name, l.name AS area_name, l.district
+       FROM volunteer_locations vl
+       JOIN users u ON u.id = vl.volunteer_id
+       JOIN tasks t ON t.id = vl.task_id AND t.status != 'completed'
+       LEFT JOIN locations l ON l.id = t.location_id
+       JOIN task_assignments ta ON ta.task_id = vl.task_id AND ta.volunteer_id = vl.volunteer_id AND ta.status = 'accepted'
+       WHERE vl.is_sharing = 1 AND vl.updated_at >= UTC_TIMESTAMP() - INTERVAL 15 MINUTE`,
     );
     ok(res, rows);
   } catch (err) { next(err); }

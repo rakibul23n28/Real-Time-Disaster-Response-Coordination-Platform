@@ -25,16 +25,17 @@ export async function getTasks(page: number, limit: number, volunteerId?: number
     params.push(volunteerId);
 
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT t.*, l.name AS location_name, l.district
+            `SELECT t.*, l.name AS location_name, l.district,
+              ta.status AS assignment_status, ta.decline_reason
        FROM tasks t
-       JOIN task_assignments ta ON ta.task_id = t.id
+      JOIN task_assignments ta ON ta.task_id = t.id AND ta.status != 'declined'
        LEFT JOIN locations l ON l.id = t.location_id
        ${where}
        ORDER BY t.created_at DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
     const [countResult] = await pool.execute<RowDataPacket[]>(
-      `SELECT COUNT(*) AS total FROM tasks t JOIN task_assignments ta ON ta.task_id = t.id ${where}`,
+      `SELECT COUNT(*) AS total FROM tasks t JOIN task_assignments ta ON ta.task_id = t.id AND ta.status != 'declined' ${where}`,
       params
     );
     return { tasks: rows, total: (countResult[0] as { total: number }).total };
@@ -71,6 +72,13 @@ export async function getTaskById(id: number) {
   return { ...rows[0], assignments };
 }
 
+export async function getVolunteers() {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    `SELECT id, name, email, is_available FROM users WHERE role = 'volunteer' ORDER BY name`,
+  );
+  return rows;
+}
+
 export async function assignTask(taskId: number, adminId: number, input: AssignTaskInput) {
   // Verify volunteer role
   const [volRows] = await pool.execute<RowDataPacket[]>(
@@ -88,8 +96,34 @@ export async function assignTask(taskId: number, adminId: number, input: AssignT
   try {
     await conn.beginTransaction();
 
+    const [targetRows] = await conn.execute<RowDataPacket[]>(
+      `SELECT location_id FROM tasks WHERE id = ?`,
+      [taskId],
+    );
+    const targetLocationId = targetRows[0]?.location_id ?? null;
+    const [activeAssignments] = await conn.execute<RowDataPacket[]>(
+      `SELECT ta.task_id, t.title, t.location_id, l.name AS location_name
+       FROM task_assignments ta
+       JOIN tasks t ON t.id = ta.task_id
+       LEFT JOIN locations l ON l.id = t.location_id
+       WHERE ta.volunteer_id = ?
+         AND ta.status IN ('pending', 'accepted')
+         AND t.status != 'completed'
+         AND ta.task_id != ?
+       FOR UPDATE`,
+      [input.volunteer_id, taskId],
+    );
+    const conflictingAssignment = activeAssignments.find((assignment) => assignment.location_id !== targetLocationId);
+    if (conflictingAssignment) {
+      throw Object.assign(
+        new Error(`Volunteer is already assigned to another active disaster area: ${conflictingAssignment.location_name ?? conflictingAssignment.title}`),
+        { status: 409 },
+      );
+    }
+
     await conn.execute(
-      `INSERT IGNORE INTO task_assignments (task_id, volunteer_id, assigned_by) VALUES (?, ?, ?)`,
+      `INSERT INTO task_assignments (task_id, volunteer_id, assigned_by) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE assigned_by = VALUES(assigned_by), status = 'pending', decline_reason = NULL, responded_at = NULL`,
       [taskId, input.volunteer_id, adminId]
     );
 
@@ -98,7 +132,7 @@ export async function assignTask(taskId: number, adminId: number, input: AssignT
     await createNotification(conn, {
       userId: input.volunteer_id,
       title: "নতুন টাস্ক নিয়োগ",
-      message: `আপনাকে "${task.title}" টাস্কে নিয়োগ করা হয়েছে`,
+      message: `আপনাকে "${task.title}" টাস্কে নিয়োগ করা হয়েছে। কাজটি গ্রহণ বা প্রত্যাখ্যান করুন।`,
       type: "success",
       referenceType: "task",
       referenceId: taskId,
@@ -112,6 +146,33 @@ export async function assignTask(taskId: number, adminId: number, input: AssignT
     conn.release();
   }
   return getTaskById(taskId);
+}
+
+export async function respondToAssignment(taskId: number, volunteerId: number, status: "accepted" | "declined", reason?: string) {
+  const [result] = await pool.execute<ResultSetHeader>(
+    `UPDATE task_assignments SET status = ?, decline_reason = ?, responded_at = CURRENT_TIMESTAMP
+     WHERE task_id = ? AND volunteer_id = ?`,
+    [status, status === "declined" ? reason ?? null : null, taskId, volunteerId],
+  );
+  if (!result.affectedRows) throw Object.assign(new Error("Assignment not found"), { status: 404 });
+  if (status === "declined") {
+    await notifyAdmins(null, { title: "স্বেচ্ছাসেবক কাজ প্রত্যাখ্যান করেছেন", message: `টাস্ক ${taskId} প্রত্যাখ্যানের কারণ: ${reason}`, type: "warning", referenceType: "task", referenceId: taskId });
+  }
+  return getTaskById(taskId);
+}
+
+export async function updateVolunteerLocation(taskId: number, volunteerId: number, input: { latitude: number; longitude: number; is_sharing: boolean }) {
+  const [assignment] = await pool.execute<RowDataPacket[]>(
+    `SELECT id FROM task_assignments WHERE task_id = ? AND volunteer_id = ? AND status = 'accepted'`,
+    [taskId, volunteerId],
+  );
+  if (!assignment[0]) throw Object.assign(new Error("Accept the assignment before sharing location"), { status: 403 });
+  await pool.execute(
+    `INSERT INTO volunteer_locations (volunteer_id, task_id, latitude, longitude, is_sharing)
+     VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE latitude = VALUES(latitude), longitude = VALUES(longitude), is_sharing = VALUES(is_sharing)`,
+    [volunteerId, taskId, input.latitude, input.longitude, input.is_sharing ? 1 : 0],
+  );
+  return { task_id: taskId, ...input };
 }
 
 export async function updateTask(id: number, input: UpdateTaskInput) {
@@ -134,18 +195,19 @@ export async function updateTask(id: number, input: UpdateTaskInput) {
 export async function updateTaskStatus(taskId: number, volunteerId: number, isAdmin: boolean, input: UpdateTaskStatusInput) {
   if (!isAdmin) {
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT id FROM task_assignments WHERE task_id = ? AND volunteer_id = ?`,
+      `SELECT id FROM task_assignments WHERE task_id = ? AND volunteer_id = ? AND status = 'accepted'`,
       [taskId, volunteerId]
     );
     if (!rows[0]) throw Object.assign(new Error("You are not assigned to this task"), { status: 403 });
   }
 
-  const updates: Record<string, unknown> = { status: input.status };
+  const updates: Record<string, string | number> = { status: input.status };
   if (input.progress !== undefined) updates.progress = input.progress;
   if (input.status === "completed")  updates.progress = 100;
 
   const sets = Object.keys(updates).map((k) => `${k} = ?`).join(", ");
-  await pool.execute(`UPDATE tasks SET ${sets} WHERE id = ?`, [...Object.values(updates), taskId]);
+  const updateValues: (string | number)[] = [...Object.values(updates), taskId];
+  await pool.execute<ResultSetHeader>(`UPDATE tasks SET ${sets} WHERE id = ?`, updateValues);
 
   if (input.status === "completed") {
     const [rows] = await pool.execute<RowDataPacket[]>(`SELECT title FROM tasks WHERE id = ?`, [taskId]);

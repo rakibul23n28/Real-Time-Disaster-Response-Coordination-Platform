@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 interface LogoProps {
   size?: "sm" | "md" | "lg";
   variant?: "full" | "icon";
@@ -23,10 +24,10 @@ export default function Logo({ size = "md", variant = "full" }: LogoProps) {
         </svg>
       </div>
       {variant === "full" && (
-        <div className="flex flex-col leading-tight">
+        <Link to="/" className="flex flex-col leading-tight">
           <span className={`font-bold text-[#17221D] ${textSize}`}>দুর্যোগ সাড়া</span>
           <span className={`text-[#66736D] font-medium tracking-wide uppercase ${subSize}`}>Disaster Response</span>
-        </div>
+        </Link>
       )}
     </div>
   );

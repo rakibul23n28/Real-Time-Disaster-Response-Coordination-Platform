@@ -64,6 +64,7 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
       <div className={`flex items-center gap-3 px-4 py-4 border-b border-[#DCE6E0] ${collapsed ? "justify-center" : "justify-between"}`}>
         {collapsed ? <Logo variant="icon" size="sm" /> : <Logo size="sm" />}
         {onClose && !collapsed && (
+          
           <button onClick={onClose} className="lg:hidden p-1 rounded text-[#66736D] hover:bg-[#F4FBF6]">
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -22,4 +22,6 @@ export interface Task {
   assignedAt: string;
   resources: TaskResource[];
   affectedPeople: number;
+  assignmentStatus?: "pending" | "accepted" | "declined";
+  declineReason?: string;
 }

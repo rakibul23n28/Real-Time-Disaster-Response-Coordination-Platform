@@ -6,5 +6,6 @@ const router = Router();
 
 router.get("/landing", ctrl.getLandingSummary);
 router.get("/incidents", mapCtrl.getPublicIncidents);
+router.get("/volunteer-locations", mapCtrl.getPublicVolunteerLocations);
 
 export default router;

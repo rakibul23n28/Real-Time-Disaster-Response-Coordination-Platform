@@ -29,6 +29,8 @@ function mapTask(task: ApiTask): Task {
     assignedAt: formatDate(task.assigned_at ?? ""),
     resources: [],
     affectedPeople: 0,
+    assignmentStatus: task.assignment_status ?? task.assignments?.[0]?.status ?? "pending",
+    declineReason: task.decline_reason ?? task.assignments?.[0]?.decline_reason ?? undefined,
   };
 }
 
@@ -36,6 +38,7 @@ function mapIssue(issue: ApiIssue): FieldIssue {
   const config = issueTypeConfig[issue.issue_type];
   return {
     id: issue.issue_code,
+    backendId: issue.id,
     taskId: issue.task_id ? String(issue.task_id) : "",
     type: issue.issue_type,
     label: config.label,
@@ -86,6 +89,19 @@ export function useVolunteerData() {
     setTasks((current) => current.map((item) => item.id === task.id ? mapTask(updated) : item));
   }, []);
 
+  const respondToAssignment = useCallback(async (task: Task, status: "accepted" | "declined", reason?: string) => {
+    if (!task.backendId) throw new Error("কাজটির সার্ভার আইডি পাওয়া যায়নি");
+    const updated = status === "accepted"
+      ? await apiClient.acceptAssignment(task.backendId)
+      : await apiClient.declineAssignment(task.backendId, reason ?? "");
+    setTasks((current) => current.map((item) => item.id === task.id ? mapTask(updated) : item));
+  }, []);
+
+  const updateVolunteerLocation = useCallback(async (task: Task, latitude: number, longitude: number, is_sharing: boolean) => {
+    if (!task.backendId) throw new Error("কাজটির সার্ভার আইডি পাওয়া যায়নি");
+    await apiClient.updateVolunteerLocation(task.backendId, { latitude, longitude, is_sharing });
+  }, []);
+
   const addIssue = useCallback(async (input: Parameters<typeof apiClient.createIssue>[0]) => {
     const created = await apiClient.createIssue(input);
     const mapped = mapIssue(created);
@@ -93,10 +109,17 @@ export function useVolunteerData() {
     return mapped;
   }, []);
 
+  const updateIssueStatus = useCallback(async (issue: FieldIssue, status: "reported" | "in_progress" | "resolved") => {
+    if (!issue.backendId) throw new Error("সমস্যাটির সার্ভার আইডি পাওয়া যায়নি");
+    const updated = await apiClient.updateIssueStatus(issue.backendId, status === "acknowledged" ? "in_progress" : status);
+    const mapped = mapIssue(updated);
+    setIssues((current) => current.map((item) => item.id === issue.id ? mapped : item));
+  }, []);
+
   const markNotificationsRead = useCallback(async () => {
     await apiClient.markNotificationsRead();
     setNotifications((current) => current.map((notification) => ({ ...notification, is_read: 1 })));
   }, []);
 
-  return { tasks, issues, notifications, loading, error, refresh, updateTaskStatus, addIssue, markNotificationsRead };
+  return { tasks, issues, notifications, loading, error, refresh, updateTaskStatus, respondToAssignment, updateVolunteerLocation, addIssue, updateIssueStatus, markNotificationsRead };
 }
