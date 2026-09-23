@@ -6,7 +6,7 @@ import type { AuthRequest } from "../types/auth.types.js";
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.register(req.body);
-    created(res, result, "Registration successful");
+    created(res, result, "Registration successfuul");
   } catch (err) { next(err); }
 }
 
