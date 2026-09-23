@@ -18,6 +18,7 @@ import dashboardRoutes    from "./routes/dashboard.routes.js";
 import mapRoutes          from "./routes/map.routes.js";
 import publicRoutes       from "./routes/public.routes.js";
 import donationRoutes     from "./routes/donation.routes.js";
+import trainingRoutes     from "./routes/training.routes.js";
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use("/api/v1/dashboard",     dashboardRoutes);
 app.use("/api/v1/map",           mapRoutes);
 app.use("/api/v1/public",        publicRoutes);
 app.use("/api/v1/donations",    donationRoutes);
+app.use("/api/v1/training",     trainingRoutes);
 
 // 404 + error handling (must be last)
 app.use(notFound);

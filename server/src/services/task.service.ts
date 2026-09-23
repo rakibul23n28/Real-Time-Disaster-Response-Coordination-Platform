@@ -87,6 +87,12 @@ export async function assignTask(taskId: number, adminId: number, input: AssignT
   );
   if (!volRows[0]) throw Object.assign(new Error("User is not a volunteer"), { status: 400 });
 
+  const [trainingRows] = await pool.execute<RowDataPacket[]>(
+    "SELECT id FROM training_enrollments WHERE volunteer_id = ? AND status = 'completed' LIMIT 1",
+    [input.volunteer_id],
+  );
+  if (!trainingRows[0]) throw Object.assign(new Error("Volunteer must complete training before receiving a task"), { status: 400 });
+
   const [taskRows] = await pool.execute<RowDataPacket[]>(
     `SELECT id, title FROM tasks WHERE id = ?`, [taskId]
   );

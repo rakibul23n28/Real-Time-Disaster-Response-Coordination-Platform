@@ -152,6 +152,44 @@ export interface ApiNotification {
   created_at: string;
 }
 
+export type TrainingEnrollmentStatus = "registered" | "in_progress" | "completed";
+
+export interface TrainingEvent {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  district: string;
+  start_date: string;
+  end_date: string;
+  duration_days: number;
+  capacity: number;
+  status: "open" | "in_progress" | "completed" | "cancelled";
+  enrolled_count: number;
+  enrollment_id?: number | null;
+  enrollment_status?: TrainingEnrollmentStatus | null;
+  completed_days?: number | null;
+  created_at: string;
+}
+
+export interface TrainingEnrollment {
+  id: number;
+  event_id: number;
+  volunteer_id: number;
+  status: TrainingEnrollmentStatus;
+  completed_days: number;
+  duration_days: number;
+  enrolled_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  volunteer_name: string;
+  volunteer_email?: string;
+  event_title: string;
+  location: string;
+  start_date?: string;
+  end_date?: string;
+}
+
 export interface ApiResource {
   id: number;
   name: string;
@@ -718,6 +756,48 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     await this.handleResponse<ApiResponse<null>>(response);
+  }
+
+  async getTrainingEvents(): Promise<TrainingEvent[]> {
+    const response = await fetch(`${API_BASE_URL}/training/events`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<TrainingEvent[]>>(response);
+    return data.data;
+  }
+
+  async createTrainingEvent(input: Omit<TrainingEvent, "id" | "status" | "enrolled_count" | "enrollment_id" | "enrollment_status" | "created_at">): Promise<TrainingEvent> {
+    const response = await fetch(`${API_BASE_URL}/training/events`, {
+      method: "POST", headers: this.getHeaders(), body: JSON.stringify(input),
+    });
+    const data = await this.handleResponse<ApiResponse<TrainingEvent>>(response);
+    return data.data;
+  }
+
+  async enrollInTraining(eventId: number): Promise<TrainingEvent> {
+    const response = await fetch(`${API_BASE_URL}/training/events/${eventId}/enroll`, { method: "POST", headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<TrainingEvent>>(response);
+    return data.data;
+  }
+
+  async completeTrainingDay(enrollmentId: number): Promise<TrainingEnrollment> {
+    const response = await fetch(`${API_BASE_URL}/training/enrollments/${enrollmentId}/day-complete`, {
+      method: "POST", headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<ApiResponse<TrainingEnrollment>>(response);
+    return data.data;
+  }
+
+  async getTrainingEnrollments(): Promise<TrainingEnrollment[]> {
+    const response = await fetch(`${API_BASE_URL}/training/enrollments`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<TrainingEnrollment[]>>(response);
+    return data.data;
+  }
+
+  async updateTrainingEnrollment(id: number, status: TrainingEnrollmentStatus): Promise<TrainingEnrollment> {
+    const response = await fetch(`${API_BASE_URL}/training/enrollments/${id}/status`, {
+      method: "PATCH", headers: this.getHeaders(), body: JSON.stringify({ status }),
+    });
+    const data = await this.handleResponse<ApiResponse<TrainingEnrollment>>(response);
+    return data.data;
   }
 
   async getDonationPlaces(category?: DonationPlace["categories"]): Promise<DonationPlace[]> {

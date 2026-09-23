@@ -27,6 +27,50 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
+-- volunteer training
+-- ----------------------------------------------------------------
+CREATE TABLE training_events (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  title         VARCHAR(180) NOT NULL,
+  description   TEXT         NOT NULL,
+  location      VARCHAR(200) NOT NULL,
+  district      VARCHAR(80)  NOT NULL,
+  start_date    DATE         NOT NULL,
+  end_date      DATE         NOT NULL,
+  duration_days TINYINT UNSIGNED NOT NULL,
+  capacity      SMALLINT UNSIGNED NOT NULL DEFAULT 30,
+  status        ENUM('open','in_progress','completed','cancelled') NOT NULL DEFAULT 'open',
+  created_by    INT UNSIGNED NOT NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_training_event_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_training_dates CHECK (end_date >= start_date),
+  CONSTRAINT chk_training_duration CHECK (duration_days BETWEEN 1 AND 30),
+  CONSTRAINT chk_training_capacity CHECK (capacity > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE training_enrollments (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  event_id     INT UNSIGNED NOT NULL,
+  volunteer_id INT UNSIGNED NOT NULL,
+  status       ENUM('registered','in_progress','completed') NOT NULL DEFAULT 'registered',
+  completed_days TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  enrolled_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at   DATETIME DEFAULT NULL,
+  completed_at DATETIME DEFAULT NULL,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_training_volunteer_event (event_id, volunteer_id),
+  CONSTRAINT fk_training_enrollment_event FOREIGN KEY (event_id) REFERENCES training_events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_training_enrollment_volunteer FOREIGN KEY (volunteer_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_training_completed_days CHECK (completed_days >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_training_event_dates ON training_events (status, start_date);
+CREATE INDEX idx_training_enrollment_volunteer ON training_enrollments (volunteer_id, status);
+
+-- ----------------------------------------------------------------
 -- locations
 -- ----------------------------------------------------------------
 CREATE TABLE locations (
@@ -332,6 +376,35 @@ INSERT INTO users (name, email, phone, password_hash, role) VALUES
 ('ইমরান কবির', 'imran.volunteer@example.com', '01711-555003', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
 ('মেহেদী হাসান', 'mehedi.volunteer@example.com', '01711-555004', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer'),
 ('শারমিন আক্তার', 'sharmin.volunteer@example.com', '01711-555005', '$2b$12$4UefLpEE542EOn1vL2NdUOiwwUT2cEG0kL8ToLwSBU75TYJLRmaZ6', 'volunteer');
+
+-- ----------------------------------------------------------------
+-- Demo volunteer training events and enrollments
+-- ----------------------------------------------------------------
+INSERT INTO training_events
+  (title, description, location, district, start_date, end_date, duration_days, capacity, status, created_by)
+VALUES
+('বন্যা প্রস্তুতি প্রশিক্ষণ — সুনামগঞ্জ',
+ 'নৌকা উদ্ধার, নিরাপদ আশ্রয়কেন্দ্র পরিচালনা, জরুরি যোগাযোগ এবং পরিবারভিত্তিক ত্রাণ বিতরণের মাঠ প্রশিক্ষণ।',
+ 'সুনামগঞ্জ সদর প্রশিক্ষণ কেন্দ্র', 'সুনামগঞ্জ', '2026-09-25', '2026-09-28', 4, 25, 'open', 3),
+('উপকূলীয় দুর্যোগ প্রস্তুতি — কক্সবাজার',
+ 'ঘূর্ণিঝড়ের আগে সরিয়ে নেওয়া, প্রাথমিক চিকিৎসা, আশ্রয়কেন্দ্র ব্যবস্থাপনা এবং উদ্ধার নিরাপত্তা বিষয়ক প্রশিক্ষণ।',
+ 'কক্সবাজার রেড ক্রিসেন্ট মাঠ', 'কক্সবাজার', '2026-09-27', '2026-10-02', 6, 30, 'open', 3),
+('জরুরি চিকিৎসা ও ত্রাণ প্রশিক্ষণ — সিলেট',
+ 'জলাবদ্ধ এলাকায় চিকিৎসা সহায়তা, বিশুদ্ধ পানি বিতরণ, ঝুঁকি শনাক্তকরণ এবং ক্ষতিগ্রস্ত মানুষের সঙ্গে যোগাযোগের অনুশীলন।',
+ 'সিলেট বিভাগীয় দুর্যোগ প্রশিক্ষণ হল', 'সিলেট', '2026-09-20', '2026-09-23', 4, 20, 'in_progress', 3),
+('মাঠ নেতৃত্ব ও আশ্রয়কেন্দ্র পরিচালনা — খুলনা',
+ 'আশ্রয়কেন্দ্র পরিচালনা, স্বেচ্ছাসেবক দল সমন্বয়, ত্রাণ হিসাব এবং দুর্যোগ-পরবর্তী প্রতিবেদন তৈরির পূর্ণাঙ্গ প্রশিক্ষণ।',
+ 'খুলনা উপকূলীয় প্রশিক্ষণ কমপ্লেক্স', 'খুলনা', '2026-09-10', '2026-09-12', 3, 20, 'completed', 3);
+
+INSERT INTO training_enrollments
+  (event_id, volunteer_id, status, completed_days, enrolled_at, started_at, completed_at)
+VALUES
+(1, 2,  'registered',  0, '2026-09-20 09:15:00', NULL, NULL),
+(1, 6,  'registered',  0, '2026-09-21 11:40:00', NULL, NULL),
+(2, 7,  'registered',  0, '2026-09-22 14:05:00', NULL, NULL),
+(3, 8,  'in_progress', 2, '2026-09-15 10:20:00', '2026-09-20 08:30:00', NULL),
+(3, 9,  'in_progress', 1, '2026-09-16 16:10:00', '2026-09-20 08:30:00', NULL),
+(4, 10, 'completed',   3, '2026-09-05 12:00:00', '2026-09-10 08:30:00', '2026-09-12 17:00:00');
 
 -- ----------------------------------------------------------------
 -- Demo locations

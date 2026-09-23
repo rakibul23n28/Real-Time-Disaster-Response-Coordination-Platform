@@ -31,6 +31,7 @@ import VolunteerTasks from "./pages/volunteer/VolunteerTasks";
 import TaskDetail from "./pages/volunteer/TaskDetail";
 import FieldIssues from "./pages/volunteer/FieldIssues";
 import VolunteerProfile from "./pages/volunteer/VolunteerProfile";
+import VolunteerTraining from "./pages/volunteer/VolunteerTraining";
 
 // Admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -42,6 +43,7 @@ import ResourceAllocation from "./pages/admin/ResourceAllocation";
 import InventoryManagement from "./pages/admin/InventoryManagement";
 import Operations from "./pages/admin/Operations";
 import AdminProfile from "./pages/admin/AdminProfile";
+import AdminTraining from "./pages/admin/AdminTraining";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 
 export default function App() {
@@ -78,6 +80,7 @@ export default function App() {
           <Route element={<ProtectedRoute role="volunteer" />}>
             <Route element={<AppLayout />}>
               <Route path="/volunteer" element={<VolunteerDashboard />} />
+              <Route path="/volunteer/training" element={<VolunteerTraining />} />
               <Route path="/volunteer/map" element={<VolunteerMap />} />
               <Route path="/volunteer/tasks" element={<VolunteerTasks />} />
               <Route path="/volunteer/tasks/:id" element={<TaskDetail />} />
@@ -90,6 +93,7 @@ export default function App() {
           <Route element={<ProtectedRoute role="admin" />}>
             <Route element={<AppLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/training" element={<AdminTraining />} />
               <Route path="/admin/reports" element={<ReportVerification />} />
               <Route path="/admin/reports/:id" element={<AdminReportDetail />} />
               <Route path="/admin/map" element={<AdminMap />} />

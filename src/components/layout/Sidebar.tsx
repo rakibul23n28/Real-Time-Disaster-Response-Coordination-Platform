@@ -18,6 +18,7 @@ const citizenNav: NavItem[] = [
 
 const volunteerNav: NavItem[] = [
   { label: "ড্যাশবোর্ড", path: "/volunteer", icon: <GridIcon /> },
+  { label: "প্রশিক্ষণ", path: "/volunteer/training", icon: <TrainingIcon /> },
   { label: "দুর্যোগ মানচিত্র", path: "/volunteer/map", icon: <MapIcon /> },
   { label: "আমার কাজ", path: "/volunteer/tasks", icon: <TaskIcon /> },
   { label: "মাঠের সমস্যা", path: "/volunteer/issues", icon: <FlagIcon /> },
@@ -26,6 +27,7 @@ const volunteerNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { label: "ড্যাশবোর্ড", path: "/admin", icon: <GridIcon /> },
+  { label: "স্বেচ্ছাসেবক প্রশিক্ষণ", path: "/admin/training", icon: <TrainingIcon /> },
   { label: "রিপোর্ট যাচাই", path: "/admin/reports", icon: <CheckIcon /> },
   { label: "দুর্যোগ মানচিত্র", path: "/admin/map", icon: <MapIcon /> },
   { label: "তীব্রতা বিশ্লেষণ", path: "/admin/severity", icon: <ChartIcon /> },
@@ -129,6 +131,9 @@ function UserIcon() {
 }
 function TaskIcon() {
   return <svg viewBox="0 0 20 20" fill="currentColor" className="size-full"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/></svg>;
+}
+function TrainingIcon() {
+  return <svg viewBox="0 0 20 20" fill="currentColor" className="size-full"><path d="M10 2 2 6l8 4 6-3v5h2V6l-8-4Z"/><path d="M5 10v3.5c0 1.7 2.2 3.5 5 3.5s5-1.8 5-3.5V10l-5 2.5L5 10Z"/></svg>;
 }
 function FlagIcon() {
   return <svg viewBox="0 0 20 20" fill="currentColor" className="size-full"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 7l2.55 2.4A1 1 0 0116 11H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" /></svg>;
