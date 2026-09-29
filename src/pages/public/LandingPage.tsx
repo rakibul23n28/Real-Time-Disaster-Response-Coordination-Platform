@@ -260,19 +260,48 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <DisasterMap height="360px" incidents={landingIncidents} />
-              <div className="flex items-center gap-4 justify-center">
-                <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
-                  <span className="size-3 rounded-full bg-[#DC2626]" /> উচ্চ ঝুঁকি
-                </span>
-                <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
-                  <span className="size-3 rounded-full bg-[#F59E0B]" /> মাঝারি ঝুঁকি
-                </span>
-                <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
-                  <span className="size-3 rounded-full bg-[#16A34A]" /> পর্যবেক্ষণে
-                </span>
+            <div className="grid sm:grid-cols-[minmax(0,1fr)_220px] gap-4 items-start">
+              <div className="space-y-3">
+                <DisasterMap height="360px" incidents={landingIncidents} />
+                <div className="flex items-center gap-4 justify-center flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
+                    <span className="size-3 rounded-full bg-[#DC2626]" /> উচ্চ ঝুঁকি
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
+                    <span className="size-3 rounded-full bg-[#F59E0B]" /> মাঝারি ঝুঁকি
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-[#66736D]">
+                    <span className="size-3 rounded-full bg-[#16A34A]" /> পর্যবেক্ষণে
+                  </span>
+                </div>
               </div>
+              <aside className="rounded-xl border border-[#DCE6E0] bg-white p-4 shadow-sm">
+                <h2 className="mb-3 text-sm font-bold text-[#17221D]">ঝুঁকিপূর্ণ স্থান ও গুরুত্ব</h2>
+                <div className="max-h-[300px] space-y-2 overflow-y-auto pr-1" aria-label="দুর্যোগ এলাকার গুরুত্বের তালিকা" tabIndex={0}>
+                  <div className="space-y-2">
+                    {landingIncidents.map((incident) => {
+                      const severity = String(incident.severity ?? "").toLowerCase();
+                      const isHigh = severity.includes("high") || severity.includes("উচ্চ");
+                      const isMedium = severity.includes("medium") || severity.includes("moderate") || severity.includes("মাঝারি");
+                      const riskLabel = isHigh ? "উচ্চ ঝুঁকি" : isMedium ? "মাঝারি ঝুঁকি" : "পর্যবেক্ষণে";
+                      const riskColor = isHigh ? "bg-red-50 text-red-700" : isMedium ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700";
+                      return (
+                        <div key={incident.id} className="rounded-lg bg-[#F7F9F8] p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-semibold text-[#17221D]">
+                              {String((incident as unknown as Record<string, unknown>).title ?? (incident as unknown as Record<string, unknown>).type ?? (incident as unknown as Record<string, unknown>).disasterType ?? "দুর্যোগ")}
+                            </p>
+                            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${riskColor}`}>{riskLabel}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-[#66736D]">{incident.location}</p>
+                          <p className="mt-1 text-xs text-[#2E7D5B]">গুরুত্ব: {incident.severity}</p>
+                        </div>
+                      );
+                    })}
+                    {landingIncidents.length === 0 && <p className="text-xs text-[#66736D]">বর্তমানে কোনো দুর্যোগ এলাকার তথ্য নেই।</p>}
+                  </div>
+                </div>
+              </aside>
             </div>
           </div>
         </div>
