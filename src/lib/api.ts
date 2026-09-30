@@ -61,6 +61,15 @@ export interface VolunteerLocation {
   updated_at: string;
 }
 
+export interface ChatMessage {
+  id: number;
+  sender_id: number;
+  sender_name: string;
+  sender_role: "admin" | "volunteer";
+  message: string;
+  created_at: string;
+}
+
 export interface LandingStats {
   totalReports: number;
   verifiedIncidents: number;
@@ -747,6 +756,22 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     const data = await this.handleResponse<ApiResponse<ApiNotification[]>>(response);
+    return data.data;
+  }
+
+  async getChatMessages(): Promise<ChatMessage[]> {
+    const response = await fetch(`${API_BASE_URL}/chat/messages`, { headers: this.getHeaders() });
+    const data = await this.handleResponse<ApiResponse<ChatMessage[]>>(response);
+    return data.data;
+  }
+
+  async sendChatMessage(message: string): Promise<ChatMessage> {
+    const response = await fetch(`${API_BASE_URL}/chat/messages`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ message }),
+    });
+    const data = await this.handleResponse<ApiResponse<ChatMessage>>(response);
     return data.data;
   }
 

@@ -39,6 +39,14 @@ mysql -u root -p < ../database.sql
 4. Select `database.sql` from the project root.
 5. Click **Start Import**.
 
+### Existing database upgrade
+
+To add the admin-volunteer global chat to an existing installation, apply the migration once:
+
+```bash
+mysql -u root -p disaster_response < server/migrations/001_create_chat_messages.sql
+```
+
 ---
 
 ## Environment setup

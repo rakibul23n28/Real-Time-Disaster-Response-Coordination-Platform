@@ -4,6 +4,7 @@ import { AppStateProvider } from "./hooks/useAppState";
 import { ToastProvider } from "./components/common/Toast";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
+import GlobalChat from "./components/common/GlobalChat";
 
 // Public
 import LandingPage from "./pages/public/LandingPage";
@@ -108,6 +109,7 @@ export default function App() {
           {/* Catch-all */}
           <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            <GlobalChat />
           </ToastProvider>
         </AppStateProvider>
       </AuthProvider>

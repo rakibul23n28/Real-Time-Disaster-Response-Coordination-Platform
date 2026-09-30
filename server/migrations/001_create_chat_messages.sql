@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  sender_id  INT UNSIGNED NOT NULL,
+  message    VARCHAR(1000) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_chat_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_chat_created (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
