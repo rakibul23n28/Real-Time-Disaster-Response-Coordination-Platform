@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import Logo from "../../components/common/Logo";
 import DisasterMap from "../../components/maps/DisasterMap";
-import { apiClient, type DonationLogEntry, type Incident, type LandingStats } from "../../lib/api";
+import { apiClient, type DonationLogEntry, type Incident, type LandingStats, type VolunteerLocation } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
 
 const statLabels = [
@@ -119,6 +119,8 @@ export default function LandingPage() {
   const statsRef = useRef<HTMLDivElement>(null);
   const [mobileNav, setMobileNav] = useState(false);
   const [donationLogs, setDonationLogs] = useState<DonationLogEntry[]>([]);
+  const [landingVolunteers, setLandingVolunteers] = useState<VolunteerLocation[]>([]);
+  const [quickLookup, setQuickLookup] = useState<"reports" | "volunteers">("reports");
   const dashboardPath = user?.role === "admin" ? "/admin" : user?.role === "volunteer" ? "/volunteer" : "/citizen";
 
   useEffect(() => {
@@ -132,6 +134,13 @@ export default function LandingPage() {
     const loadDonations = () => { void apiClient.getDonationLog().then(setDonationLogs).catch(() => undefined); };
     loadDonations();
     const timer = window.setInterval(loadDonations, 15000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const load = () => { void apiClient.getPublicVolunteerLocations().then(setLandingVolunteers).catch(() => undefined); };
+    load();
+    const timer = window.setInterval(load, 15000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -276,30 +285,60 @@ export default function LandingPage() {
                 </div>
               </div>
               <aside className="rounded-xl border border-[#DCE6E0] bg-white p-4 shadow-sm">
-                <h2 className="mb-3 text-sm font-bold text-[#17221D]">ঝুঁকিপূর্ণ স্থান ও গুরুত্ব</h2>
-                <div className="max-h-[300px] space-y-2 overflow-y-auto pr-1" aria-label="দুর্যোগ এলাকার গুরুত্বের তালিকা" tabIndex={0}>
-                  <div className="space-y-2">
-                    {landingIncidents.map((incident) => {
-                      const severity = String(incident.severity ?? "").toLowerCase();
-                      const isHigh = severity.includes("high") || severity.includes("উচ্চ");
-                      const isMedium = severity.includes("medium") || severity.includes("moderate") || severity.includes("মাঝারি");
-                      const riskLabel = isHigh ? "উচ্চ ঝুঁকি" : isMedium ? "মাঝারি ঝুঁকি" : "পর্যবেক্ষণে";
-                      const riskColor = isHigh ? "bg-red-50 text-red-700" : isMedium ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700";
-                      return (
-                        <div key={incident.id} className="rounded-lg bg-[#F7F9F8] p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-[#17221D]">
-                              {String((incident as unknown as Record<string, unknown>).title ?? (incident as unknown as Record<string, unknown>).type ?? (incident as unknown as Record<string, unknown>).disasterType ?? "দুর্যোগ")}
-                            </p>
-                            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${riskColor}`}>{riskLabel}</span>
+                <h2 className="mb-3 text-sm font-bold text-[#17221D]">দ্রুত খোঁজ</h2>
+                <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#F1F4F2] p-1 mb-3" role="tablist" aria-label="দ্রুত খোঁজ">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={quickLookup === "reports"}
+                    onClick={() => setQuickLookup("reports")}
+                    className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${quickLookup === "reports" ? "bg-white text-[#17221D] shadow-sm" : "text-[#66736D]"}`}
+                  >
+                    জরুরি রিপোর্ট · {landingIncidents.length.toLocaleString("bn-BD")}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={quickLookup === "volunteers"}
+                    onClick={() => setQuickLookup("volunteers")}
+                    className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${quickLookup === "volunteers" ? "bg-white text-[#17221D] shadow-sm" : "text-[#66736D]"}`}
+                  >
+                    মাঠে · {landingVolunteers.length.toLocaleString("bn-BD")}
+                  </button>
+                </div>
+                <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1" aria-live="polite">
+                  {quickLookup === "reports" ? (
+                    <>
+                      {landingIncidents.map((incident) => {
+                        const isHigh = incident.severity === "high" || incident.severity === "critical";
+                        const isMedium = incident.severity === "medium";
+                        const riskLabel = isHigh ? "উচ্চ ঝুঁকি" : isMedium ? "মাঝারি ঝুঁকি" : "পর্যবেক্ষণে";
+                        const riskColor = isHigh ? "bg-red-50 text-red-700" : isMedium ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700";
+                        return (
+                          <div key={incident.id} className="rounded-lg bg-[#F7F9F8] p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-[#17221D]">{incident.disasterType || "জরুরি রিপোর্ট"}</p>
+                              <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${riskColor}`}>{riskLabel}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-[#66736D]">{incident.location}</p>
+                            <p className="mt-1 text-xs text-[#66736D]">আক্রান্ত: {incident.affectedPeople.toLocaleString("bn-BD")} জন</p>
                           </div>
-                          <p className="mt-1 text-xs text-[#66736D]">{incident.location}</p>
-                          <p className="mt-1 text-xs text-[#2E7D5B]">গুরুত্ব: {incident.severity}</p>
+                        );
+                      })}
+                      {landingIncidents.length === 0 && <p className="text-xs text-[#66736D]">বর্তমানে কোনো জরুরি রিপোর্ট নেই।</p>}
+                    </>
+                  ) : (
+                    <>
+                      {landingVolunteers.map((volunteer) => (
+                        <div key={`${volunteer.volunteer_id}-${volunteer.task_id}`} className="rounded-lg bg-[#F7F9F8] p-3">
+                          <p className="text-sm font-semibold text-[#17221D]">{volunteer.volunteer_name}</p>
+                          <p className="mt-1 text-xs text-[#66736D]">{volunteer.area_name ?? volunteer.district ?? "সক্রিয় মাঠ কার্যক্রম"}</p>
+                          <p className="mt-1 text-[11px] text-[#2E7D5B]">সর্বশেষ অবস্থান: {new Date(volunteer.updated_at).toLocaleTimeString("bn-BD")}</p>
                         </div>
-                      );
-                    })}
-                    {landingIncidents.length === 0 && <p className="text-xs text-[#66736D]">বর্তমানে কোনো দুর্যোগ এলাকার তথ্য নেই।</p>}
-                  </div>
+                      ))}
+                      {landingVolunteers.length === 0 && <p className="text-xs text-[#66736D]">এ মুহূর্তে কোনো লাইভ স্বেচ্ছাসেবক কার্যক্রম নেই।</p>}
+                    </>
+                  )}
                 </div>
               </aside>
             </div>

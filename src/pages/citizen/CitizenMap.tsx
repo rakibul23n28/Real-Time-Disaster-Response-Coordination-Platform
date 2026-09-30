@@ -20,6 +20,12 @@ function MapCenter({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
+function MapFlyToVolunteer({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => { map.flyTo([lat, lng], 16, { duration: 0.8 }); }, [lat, lng]);
+  return null;
+}
+
 const safetyTips = [
   { icon: "🏠", title: "নিরাপদ স্থানে যান", desc: "বন্যা বা ঘূর্ণিঝড়ের সময় ঝুঁকিপূর্ণ এলাকা এড়িয়ে চলুন।" },
   { icon: "📢", title: "জরুরি তথ্য জানান", desc: "ঘটনার সঠিক অবস্থান ও তথ্য প্রদান করুন।" },
@@ -32,6 +38,7 @@ export default function CitizenMap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [volunteerLocations, setVolunteerLocations] = useState<VolunteerLocation[]>([]);
+  const [focusedVolunteer, setFocusedVolunteer] = useState<{ id: string; lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     apiClient.getIncidents()
@@ -61,6 +68,7 @@ export default function CitizenMap() {
             <MapContainer center={[23.685, 90.356]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {selected && <MapCenter lat={selected.lat} lng={selected.lng} />}
+              {focusedVolunteer && <MapFlyToVolunteer lat={focusedVolunteer.lat} lng={focusedVolunteer.lng} />}
               {incidents.map((inc) => (
                 <CircleMarker
                   key={inc.id}
@@ -102,9 +110,34 @@ export default function CitizenMap() {
         </div>
 
         {/* Side panel — 1/4 */}
-        <div className="space-y-3">
-          <h3 className="font-semibold text-[#17221D] text-sm">সক্রিয় ঘটনাসমূহ</h3>
-          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+        <div className="space-y-4">
+          <section>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h3 className="font-semibold text-[#17221D] text-sm">লাইভ স্বেচ্ছাসেবক</h3>
+              <span className="text-xs text-[#66736D]">{volunteerLocations.length.toLocaleString("bn-BD")} জন</span>
+            </div>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {volunteerLocations.map((volunteer) => {
+                const volunteerId = `${volunteer.volunteer_id}-${volunteer.task_id}`;
+                return (
+                  <button
+                    key={volunteerId}
+                    onClick={() => setFocusedVolunteer({ id: volunteerId, lat: Number(volunteer.latitude), lng: Number(volunteer.longitude) })}
+                    className={`w-full text-left p-3 rounded-xl border transition-colors ${focusedVolunteer?.id === volunteerId ? "border-[#2E7D5B] bg-[#E8F5E9]" : "border-[#DCE6E0] bg-white hover:border-[#b0c4b8]"}`}
+                  >
+                    <p className="text-sm font-semibold text-[#17221D]">{volunteer.volunteer_name}</p>
+                    <p className="text-xs text-[#66736D]">{volunteer.area_name ?? volunteer.district ?? "আক্রান্ত এলাকা"}</p>
+                    <p className="text-[11px] text-[#2E7D5B] mt-1">অবস্থান দেখতে নির্বাচন করুন</p>
+                  </button>
+                );
+              })}
+              {volunteerLocations.length === 0 && <p className="text-xs text-[#66736D] py-2">এ মুহূর্তে কোনো স্বেচ্ছাসেবকের লাইভ অবস্থান নেই।</p>}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-[#17221D] text-sm mb-2">সক্রিয় ঘটনাসমূহ</h3>
+            <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
             {incidents.map((inc) => (
               <button
                 key={inc.id}
@@ -119,7 +152,8 @@ export default function CitizenMap() {
                 <p className="text-xs text-[#66736D]">👥 {inc.affectedPeople.toLocaleString()} জন</p>
               </button>
             ))}
-          </div>
+            </div>
+          </section>
           {loading && <p className="text-sm text-[#66736D]">ঘটনাসমূহ লোড হচ্ছে...</p>}
           {error && <p className="text-sm text-red-600">{error}</p>}
           {!loading && !error && incidents.length === 0 && <p className="text-sm text-[#66736D]">কোনো সক্রিয় ঘটনা পাওয়া যায়নি।</p>}
